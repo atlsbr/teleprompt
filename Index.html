@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PROMPTER STUDIO — Professional Teleprompter</title>
+<meta name="theme-color" content="#0a0a0f">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
+
+  :root {
+    --bg: #07070d;
+    --surface: #0f0f1a;
+    --surface2: #16162a;
+    --border: #ffffff12;
+    --accent: #7c3aed;
+    --accent2: #06b6d4;
+    --accent3: #f59e0b;
+    --danger: #ef4444;
+    --success: #10b981;
+    --text: #f0f0ff;
+    --muted: #6b6b8a;
+    --glow: rgba(124,58,237,0.4);
+    --font-display: 'Syne', sans-serif;
+    --font-mono: 'Space Mono', monospace;
+    --font-body: 'DM Sans', sans-serif;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { width:100%; height:100%; overflow:hidden; background:var(--bg); color:var(--text); font-family:var(--font-body); }
+
+  #webgl-bg { position:fixed; inset:0; z-index:0; pointer-events:none; }
+
+  #app { position:relative; z-index:1; width:100vw; height:100vh; display:flex; flex-direction:column; }
+
+  /* TOPBAR */
+  #topbar {
+    height:54px; min-height:54px;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:0 20px;
+    background:rgba(7,7,13,0.9);
+    border-bottom:1px solid var(--border);
+    backdrop-filter:blur(20px);
+    position:relative; z-index:100;
+  }
+  .logo { font-family:var(--font-display); font-weight:800; font-size:15px; letter-spacing:0.12em; display:flex; align-items:center; gap:8px; }
+  .logo-dot { width:8px; height:8px; border-radius:50%; background:var(--accent); box-shadow:0 0 10px var(--accent); animation:pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .nav-tabs { display:flex; gap:2px; }
+  .nav-tab { padding:6px 16px; font-size:12px; font-family:var(--font-display); font-weight:600; letter-spacing:0.06em; text-transform:uppercase; cursor:pointer; border-radius:6px; border:none; background:transparent; color:var(--muted); transition:all 0.2s; }
+  .nav-tab:hover { color:var(--text); background:var(--surface); }
+  .nav-tab.active { color:var(--text); background:var(--surface2); border:1px solid var(--border); }
+  .topbar-right { display:flex; align-items:center; gap:10px; }
+  .rec-indicator { display:flex; align-items:center; gap:6px; font-size:11px; font-family:var(--font-mono); color:var(--danger); opacity:0; transition:opacity 0.3s; }
+  .rec-indicator.active { opacity:1; }
+  .rec-dot { width:7px; height:7px; border-radius:50%; background:var(--danger); animation:pulse 1s infinite; }
+  .badge { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:99px; font-size:9px; font-family:var(--font-mono); letter-spacing:0.1em; }
+  .badge-purple { background:rgba(124,58,237,0.2); color:var(--accent); border:1px solid rgba(124,58,237,0.3); }
+  .badge-cyan { background:rgba(6,182,212,0.2); color:var(--accent2); border:1px solid rgba(6,182,212,0.3); }
+  .badge-amber { background:rgba(245,158,11,0.2); color:var(--accent3); border:1px solid rgba(245,158,11,0.3); }
+
+  /* LAYOUT */
+  #main { flex:1; display:flex; overflow:hidden; }
+  .view { display:none; width:100%; height:100%; }
+  .view.active { display:flex; }
+
+  /* SIDEBAR */
+  #sidebar { width:276px; min-width:276px; background:rgba(10,10,20,0.92); border-right:1px solid var(--border); display:flex; flex-direction:column; overflow:hidden; }
+  .sidebar-section { padding:14px 14px 0; }
+  .sidebar-label { font-size:9px; letter-spacing:0.2em; text-transform:uppercase; font-family:var(--font-mono); color:var(--muted); margin-bottom:8px; }
+  #script-editor { flex:1; padding:12px 14px; display:flex; flex-direction:column; gap:10px; overflow-y:auto; }
+  #script-textarea { flex:1; min-height:160px; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:10px 12px; color:var(--text); font-family:var(--font-body); font-size:12.5px; line-height:1.7; resize:none; outline:none; transition:border-color 0.2s; }
+  #script-textarea:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(124,58,237,0.1); }
+  .ctrl-row { display:flex; align-items:center; gap:8px; margin-bottom:5px; }
+  .ctrl-label { font-size:10px; color:var(--muted); font-family:var(--font-mono); min-width:72px; }
+  .ctrl-val { font-size:10px; color:var(--accent2); font-family:var(--font-mono); min-width:32px; text-align:right; }
+  input[type=range] { flex:1; -webkit-appearance:none; height:3px; background:var(--surface2); border-radius:2px; outline:none; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:13px; height:13px; border-radius:50%; background:var(--accent); cursor:pointer; box-shadow:0 0 6px var(--accent); }
+  .toggle-row { display:flex; gap:4px; }
+  .toggle-btn { flex:1; padding:6px 0; font-size:9px; font-family:var(--font-mono); letter-spacing:0.04em; background:var(--surface); border:1px solid var(--border); border-radius:6px; color:var(--muted); cursor:pointer; text-align:center; transition:all 0.2s; }
+  .toggle-btn.on { background:rgba(124,58,237,0.15); border-color:var(--accent); color:var(--accent); }
+  .ai-box { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:10px; }
+  .ai-stat { display:flex; justify-content:space-between; align-items:center; padding:4px 0; border-bottom:1px solid var(--border); font-size:10px; }
+  .ai-stat:last-child { border-bottom:none; }
+  .ai-stat-label { color:var(--muted); font-family:var(--font-mono); font-size:9px; }
+  .ai-stat-val { color:var(--accent2); font-family:var(--font-mono); font-size:10px; font-weight:700; }
+
+  /* STUDIO CENTER */
+  #studio { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; position:relative; overflow:hidden; }
+  #camera-frame { position:relative; width:min(520px, calc(100% - 32px)); aspect-ratio:9/16; max-height:calc(100vh - 170px); border-radius:14px; overflow:hidden; border:1px solid var(--border); box-shadow:0 0 50px rgba(124,58,237,0.12), 0 0 100px rgba(6,182,212,0.05); }
+  @media (orientation:landscape) and (min-width:960px) { #camera-frame { aspect-ratio:16/9; max-height:none; width:min(620px, calc(100% - 32px)); } }
+  #video-preview { width:100%; height:100%; object-fit:cover; background:#000; display:block; }
+  #three-overlay { position:absolute; inset:0; pointer-events:none; z-index:2; }
+  .hud-corner { position:absolute; width:22px; height:22px; z-index:5; opacity:0.55; }
+  .hud-corner.tl { top:10px; left:10px; border-top:2px solid var(--accent2); border-left:2px solid var(--accent2); }
+  .hud-corner.tr { top:10px; right:10px; border-top:2px solid var(--accent2); border-right:2px solid var(--accent2); }
+  .hud-corner.bl { bottom:10px; left:10px; border-bottom:2px solid var(--accent2); border-left:2px solid var(--accent2); }
+  .hud-corner.br { bottom:10px; right:10px; border-bottom:2px solid var(--accent2); border-right:2px solid var(--accent2); }
+  #eye-guide { position:absolute; left:5%; right:5%; top:28%; height:1px; background:rgba(245,158,11,0.35); z-index:4; }
+  #eye-guide-label { position:absolute; right:calc(5% + 6px); top:calc(28% - 14px); font-size:8px; color:rgba(245,158,11,0.55); font-family:var(--font-mono); letter-spacing:0.1em; z-index:4; }
+  #face-frame { position:absolute; left:50%; top:12%; transform:translateX(-50%); width:110px; height:130px; border:1px dashed rgba(255,255,255,0.18); border-radius:50% 50% 45% 45%; z-index:4; }
+  #reading-line { position:absolute; left:8%; right:8%; top:36%; height:2px; background:linear-gradient(90deg,transparent,var(--accent2),transparent); z-index:4; border-radius:1px; box-shadow:0 0 8px var(--accent2); opacity:0.6; }
+
+  /* TELEPROMPTER */
+  #teleprompter-overlay { position:absolute; inset:0; z-index:3; pointer-events:none; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+  #teleprompter-mask { position:absolute; inset:0; background:linear-gradient(to bottom,rgba(0,0,0,0.8) 0%,transparent 22%,transparent 76%,rgba(0,0,0,0.8) 100%); z-index:1; }
+  #teleprompter-track { position:absolute; left:0; right:0; bottom:0; z-index:2; padding:0 20px; }
+  #teleprompter-text { font-size:22px; font-weight:600; line-height:1.6; font-family:var(--font-display); color:#fff; text-align:center; padding-bottom:60%; text-shadow:0 2px 20px rgba(0,0,0,0.9); }
+  #teleprompter-text.mirror { transform:scaleX(-1); }
+
+  /* RECORD CONTROLS */
+  #record-controls { position:absolute; bottom:16px; left:50%; transform:translateX(-50%); z-index:10; display:flex; align-items:center; gap:10px; }
+  .ctrl-btn { width:42px; height:42px; border-radius:50%; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.2s; font-size:17px; background:rgba(20,20,35,0.85); color:var(--text); backdrop-filter:blur(10px); border:1px solid var(--border); }
+  .ctrl-btn:hover { background:rgba(40,40,60,0.9); transform:scale(1.06); }
+  #btn-record { width:58px; height:58px; font-size:21px; background:rgba(239,68,68,0.85); border-color:var(--danger); box-shadow:0 0 18px rgba(239,68,68,0.4); }
+  #btn-record.recording { animation:rec-pulse 1.5s infinite; }
+  @keyframes rec-pulse { 0%,100%{box-shadow:0 0 18px rgba(239,68,68,0.4)} 50%{box-shadow:0 0 36px rgba(239,68,68,0.8)} }
+  #btn-marker { background:rgba(245,158,11,0.15); border-color:var(--accent3); }
+
+  /* PROMPTER CONTROLS */
+  #prompter-controls { margin-top:12px; display:flex; gap:8px; align-items:center; }
+
+  /* RIGHT PANEL */
+  #right-panel { width:230px; min-width:230px; background:rgba(10,10,20,0.92); border-left:1px solid var(--border); display:flex; flex-direction:column; overflow-y:auto; padding:12px; gap:14px; }
+  .panel-title { font-size:9px; letter-spacing:0.2em; text-transform:uppercase; font-family:var(--font-mono); color:var(--muted); margin-bottom:6px; }
+  .btn { display:flex; align-items:center; justify-content:center; gap:7px; padding:8px 13px; border-radius:8px; border:none; cursor:pointer; font-family:var(--font-display); font-weight:600; font-size:10px; letter-spacing:0.07em; text-transform:uppercase; transition:all 0.2s; }
+  .btn-primary { background:var(--accent); color:#fff; box-shadow:0 0 14px var(--glow); }
+  .btn-primary:hover { box-shadow:0 0 22px var(--glow); transform:translateY(-1px); }
+  .btn-secondary { background:var(--surface2); color:var(--text); border:1px solid var(--border); }
+  .btn-secondary:hover { border-color:var(--accent); color:var(--accent); }
+  #markers-list { display:flex; flex-direction:column; gap:4px; max-height:110px; overflow-y:auto; }
+  .marker-item { display:flex; align-items:center; justify-content:space-between; padding:4px 8px; background:var(--surface); border-radius:6px; font-size:9px; font-family:var(--font-mono); color:var(--muted); border-left:2px solid var(--accent3); }
+  select { width:100%; background:var(--surface); border:1px solid var(--border); color:var(--text); padding:6px 8px; border-radius:6px; font-size:10px; outline:none; margin-bottom:6px; }
+
+  /* DASHBOARD */
+  #view-dashboard { flex-direction:column; width:100%; overflow-y:auto; }
+  .dash-inner { padding:28px; display:flex; flex-direction:column; gap:20px; }
+  .dash-hero { background:linear-gradient(135deg,rgba(124,58,237,0.14) 0%,rgba(6,182,212,0.07) 100%); border:1px solid rgba(124,58,237,0.2); border-radius:14px; padding:28px; display:flex; justify-content:space-between; align-items:center; }
+  .dash-hero h1 { font-family:var(--font-display); font-size:24px; font-weight:800; }
+  .dash-hero p { color:var(--muted); font-size:13px; margin-top:4px; }
+  .dash-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:14px; }
+  .dash-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:18px; cursor:pointer; transition:all 0.2s; }
+  .dash-card:hover { border-color:var(--accent); box-shadow:0 0 18px rgba(124,58,237,0.1); }
+  .dash-card-icon { font-size:22px; margin-bottom:10px; }
+  .dash-card-title { font-family:var(--font-display); font-weight:700; font-size:14px; margin-bottom:3px; }
+  .dash-card-sub { font-size:11px; color:var(--muted); }
+  .dash-stats { display:flex; gap:12px; }
+  .stat-pill { flex:1; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px; text-align:center; }
+  .stat-pill-num { font-family:var(--font-display); font-size:24px; font-weight:800; color:var(--accent2); }
+  .stat-pill-label { font-size:10px; color:var(--muted); margin-top:2px; }
+
+  /* EDITOR */
+  #view-editor { flex-direction:column; width:100%; }
+  #editor-toolbar { height:46px; min-height:46px; display:flex; align-items:center; gap:8px; padding:0 14px; border-bottom:1px solid var(--border); background:rgba(10,10,20,0.92); }
+  #editor-main { flex:1; display:flex; overflow:hidden; }
+  #timeline-panel { flex:1; display:flex; flex-direction:column; overflow:hidden; padding:14px; }
+  #timeline-container { background:var(--surface); border:1px solid var(--border); border-radius:10px; overflow:hidden; min-height:80px; }
+  #timeline-canvas { width:100%; height:80px; display:block; cursor:pointer; }
+  #subtitle-panel { width:300px; min-width:300px; padding:14px; border-left:1px solid var(--border); overflow-y:auto; }
+  .subtitle-item { display:flex; gap:7px; margin-bottom:7px; align-items:flex-start; }
+  .subtitle-ts { font-family:var(--font-mono); font-size:9px; color:var(--accent); min-width:36px; margin-top:3px; }
+  .subtitle-text-input { flex:1; background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:5px 8px; color:var(--text); font-size:11px; font-family:var(--font-body); outline:none; resize:none; min-height:34px; }
+  .subtitle-text-input:focus { border-color:var(--accent); }
+
+  /* EXPORT MODAL */
+  #export-modal { display:none; position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,0.82); backdrop-filter:blur(12px); align-items:center; justify-content:center; }
+  #export-modal.open { display:flex; }
+  .modal-box { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:28px; width:380px; box-shadow:0 0 60px rgba(124,58,237,0.2); }
+  .modal-title { font-family:var(--font-display); font-size:17px; font-weight:800; margin-bottom:18px; }
+  .export-options { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:18px; }
+  .export-opt { padding:13px; background:var(--surface2); border:1px solid var(--border); border-radius:10px; cursor:pointer; text-align:center; transition:all 0.2s; }
+  .export-opt:hover,.export-opt.selected { border-color:var(--accent); background:rgba(124,58,237,0.1); }
+  .export-opt-ratio { font-family:var(--font-display); font-size:15px; font-weight:800; color:var(--accent2); }
+  .export-opt-label { font-size:10px; color:var(--muted); margin-top:3px; }
+  .export-progress { display:none; background:var(--surface2); border-radius:8px; overflow:hidden; height:7px; margin-bottom:10px; }
+  .export-progress.active { display:block; }
+  .export-progress-bar { height:100%; background:linear-gradient(90deg,var(--accent),var(--accent2)); border-radius:8px; width:0%; transition:width 0.08s; }
+
+  /* PERMISSION OVERLAY */
+  #perm-overlay { position:fixed; inset:0; z-index:999; background:rgba(0,0,0,0.96); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; text-align:center; padding:24px; }
+  #perm-overlay h2 { font-family:var(--font-display); font-size:20px; font-weight:800; }
+  #perm-overlay p { color:var(--muted); font-size:13px; max-width:340px; }
+  #perm-overlay.hidden { display:none; }
+
+  /* NOTIFICATIONS */
+  #notifications { position:fixed; top:64px; right:14px; z-index:999; display:flex; flex-direction:column; gap:7px; pointer-events:none; }
+  .notif { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:9px 13px; display:flex; align-items:center; gap:9px; font-size:11px; box-shadow:0 4px 18px rgba(0,0,0,0.4); animation:slide-in 0.25s ease; max-width:260px; }
+  @keyframes slide-in { from{transform:translateX(110%);opacity:0} to{transform:translateX(0);opacity:1} }
+  .notif.success { border-color:var(--success); }
+  .notif.warn { border-color:var(--accent3); }
+  .notif.error { border-color:var(--danger); }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width:3px; height:3px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  ::-webkit-scrollbar-thumb { background:var(--surface2); border-radius:2px; }
+</style>
+</head>
+<body>
+
+<canvas id="webgl-bg"></canvas>
+
+<!-- Permission Overlay -->
+<div id="perm-overlay">
+  <div style="font-size:52px">🎬</div>
+  <h2>PROMPTER STUDIO</h2>
+  <p>Professional teleprompter &amp; video recording for content creators. We need camera &amp; mic access to start.</p>
+  <button class="btn btn-primary" id="btn-request-perm" style="padding:12px 30px;font-size:12px;">Grant Camera Access</button>
+  <button class="btn btn-secondary" onclick="skipPerm()" style="font-size:10px;">Skip — Teleprompter Only</button>
+</div>
+
+<!-- Notifications -->
+<div id="notifications"></div>
+
+<!-- Export Modal -->
+<div id="export-modal">
+  <div class="modal-box">
+    <div class="modal-title">⬇ Export Video</div>
+    <div class="export-options">
+      <div class="export-opt selected" onclick="selectExport(this,'9:16')"><div class="export-opt-ratio">9:16</div><div class="export-opt-label">Vertical / Reels</div></div>
+      <div class="export-opt" onclick="selectExport(this,'16:9')"><div class="export-opt-ratio">16:9</div><div class="export-opt-label">YouTube / Widescreen</div></div>
+      <div class="export-opt" onclick="selectExport(this,'1:1')"><div class="export-opt-ratio">1:1</div><div class="export-opt-label">Square / Feed</div></div>
+      <div class="export-opt" onclick="selectExport(this,'4:5')"><div class="export-opt-ratio">4:5</div><div class="export-opt-label">Stories / Portrait</div></div>
+    </div>
+    <div class="export-progress" id="export-progress"><div class="export-progress-bar" id="export-bar"></div></div>
+    <div id="download-area" style="display:none;margin-bottom:12px;text-align:center"></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary" style="flex:1" onclick="startExport()">Export MP4</button>
+      <button class="btn btn-secondary" onclick="closeExport()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div id="topbar">
+    <div class="logo"><div class="logo-dot"></div>PROMPTER<span style="color:var(--accent)">STUDIO</span></div>
+    <div class="nav-tabs">
+      <button class="nav-tab active" onclick="switchView('studio',this)">🎬 Studio</button>
+      <button class="nav-tab" onclick="switchView('dashboard',this)">📁 Dashboard</button>
+      <button class="nav-tab" onclick="switchView('editor',this)">✂ Editor</button>
+    </div>
+    <div class="topbar-right">
+      <div class="rec-indicator" id="rec-indicator"><div class="rec-dot"></div>REC <span id="rec-timer">00:00</span></div>
+      <span class="badge badge-purple">PWA</span>
+    </div>
+  </div>
+
+  <div id="main">
+
+    <!-- ═══ STUDIO VIEW ═══ -->
+    <div id="view-studio" class="view active" style="flex:1">
+
+      <!-- LEFT SIDEBAR -->
+      <div id="sidebar">
+        <div id="script-editor">
+          <div class="sidebar-label">Script Editor</div>
+          <textarea id="script-textarea" placeholder="Type or paste your script...
+
+Use **bold** for emphasis
+Use [PAUSE] for pause cues
+Use [SECTION: Title] for sections
+
+The teleprompter will scroll automatically."
+>Welcome to Prompter Studio — the professional teleprompter app for creators, coaches and educators.
+
+Today I want to share something exciting. [PAUSE]
+
+This app lets you record professional videos while reading your script — exactly like the pros do on television.
+
+[SECTION: Features]
+
+With Prompter Studio you get crystal-clear teleprompter overlay, adjustable scroll speed, mirror mode for screen-facing cameras, and **AI-powered subtitle generation**.
+
+[PAUSE] Let me show you exactly how it works...
+
+The teleprompter scrolls so smoothly that your audience will never know you are reading from a script. Perfect for YouTube, Instagram Reels, TikTok, LinkedIn and podcasts.
+
+[SECTION: Call to Action]
+
+Start your first recording today and take your content to the next level. **Let's go!**</textarea>
+
+          <div>
+            <div class="ctrl-row"><span class="ctrl-label">SPEED</span><input type="range" id="ctrl-speed" min="0.2" max="4" step="0.1" value="1.2" oninput="updateSpeed(this)"><span class="ctrl-val" id="val-speed">1.2×</span></div>
+            <div class="ctrl-row"><span class="ctrl-label">FONT SIZE</span><input type="range" id="ctrl-font" min="14" max="44" step="1" value="22" oninput="updateFont(this)"><span class="ctrl-val" id="val-font">22px</span></div>
+            <div class="ctrl-row"><span class="ctrl-label">OPACITY</span><input type="range" id="ctrl-opacity" min="0.3" max="1" step="0.05" value="0.9" oninput="updateOpacity(this)"><span class="ctrl-val" id="val-opacity">90%</span></div>
+          </div>
+
+          <div class="toggle-row">
+            <button class="toggle-btn" id="tog-mirror" onclick="toggleMirror()">↔ MIRROR</button>
+            <button class="toggle-btn on" id="tog-overlay" onclick="toggleOverlay()">👁 OVERLAY</button>
+            <button class="toggle-btn on" id="tog-guide" onclick="toggleGuides()">🎯 GUIDES</button>
+          </div>
+
+          <div class="ai-box">
+            <div class="sidebar-label" style="margin-bottom:6px">AI Estimate</div>
+            <div class="ai-stat"><span class="ai-stat-label">DURATION</span><span class="ai-stat-val" id="ai-duration">—</span></div>
+            <div class="ai-stat"><span class="ai-stat-label">WORDS</span><span class="ai-stat-val" id="ai-words">0</span></div>
+            <div class="ai-stat"><span class="ai-stat-label">PACE (WPM)</span><span class="ai-stat-val" id="ai-wpm">130</span></div>
+            <div class="ai-stat"><span class="ai-stat-label">SECTIONS</span><span class="ai-stat-val" id="ai-sections">0</span></div>
+            <div class="ai-stat"><span class="ai-stat-label">PAUSES</span><span class="ai-stat-val" id="ai-pauses">0</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STUDIO CENTER -->
+      <div id="studio">
+        <div id="camera-frame">
+          <video id="video-preview" autoplay muted playsinline></video>
+          <canvas id="three-overlay"></canvas>
+          <div class="hud-corner tl"></div>
+          <div class="hud-corner tr"></div>
+          <div class="hud-corner bl"></div>
+          <div class="hud-corner br"></div>
+          <div id="eye-guide"></div>
+          <div id="eye-guide-label">EYE LINE</div>
+          <div id="face-frame"></div>
+          <div id="reading-line"></div>
+          <div id="teleprompter-overlay">
+            <div id="teleprompter-mask"></div>
+            <div id="teleprompter-track"><div id="teleprompter-text"></div></div>
+          </div>
+          <div id="record-controls">
+            <button class="ctrl-btn" id="btn-marker" title="Add Marker (M)" onclick="addMarker()" style="font-size:16px">🚩</button>
+            <button class="ctrl-btn" id="btn-record" title="Record (R)" onclick="toggleRecord()">⏺</button>
+            <button class="ctrl-btn" title="Flip Camera" onclick="flipCamera()" style="font-size:16px">🔄</button>
+          </div>
+        </div>
+        <div id="prompter-controls">
+          <button class="btn btn-primary" id="btn-start-prompt" style="min-width:170px" onclick="togglePrompter()">▶ Start Teleprompter</button>
+          <button class="btn btn-secondary" onclick="resetPrompter()">↺ Reset</button>
+          <span class="badge badge-cyan" id="prompter-status">STOPPED</span>
+        </div>
+      </div>
+
+      <!-- RIGHT PANEL -->
+      <div id="right-panel">
+        <div>
+          <div class="panel-title">Camera / Mic</div>
+          <select id="camera-select"><option>Loading...</option></select>
+          <select id="mic-select"><option>Loading...</option></select>
+        </div>
+
+        <div>
+          <div class="panel-title">Markers <span class="badge badge-amber" id="marker-count">0</span></div>
+          <div id="markers-list"><div style="font-size:9px;color:var(--muted);font-family:var(--font-mono)">No markers yet.<br>Press 🚩 while recording.</div></div>
+        </div>
+
+        <div>
+          <div class="panel-title">Recording Info</div>
+          <div class="ai-stat"><span class="ai-stat-label">FORMAT</span><span class="ai-stat-val">WebM/MP4</span></div>
+          <div class="ai-stat"><span class="ai-stat-label">QUALITY</span><span class="ai-stat-val">1080p HD</span></div>
+          <div class="ai-stat"><span class="ai-stat-label">CHUNKS</span><span class="ai-stat-val" id="chunk-count">0</span></div>
+          <div class="ai-stat"><span class="ai-stat-label">SIZE</span><span class="ai-stat-val" id="rec-size">0 MB</span></div>
+        </div>
+
+        <div>
+          <div class="panel-title">Three.js FX</div>
+          <div class="toggle-row" style="margin-bottom:5px">
+            <button class="toggle-btn on" id="tog-grid" onclick="toggleGrid()">GRID</button>
+            <button class="toggle-btn on" id="tog-frame" onclick="toggleFrame()">FRAME</button>
+          </div>
+          <div class="toggle-row">
+            <button class="toggle-btn" id="tog-holo" onclick="toggleHolo()">HOLO</button>
+            <button class="toggle-btn" id="tog-scan" onclick="toggleScan()">SCAN</button>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div class="panel-title">Actions</div>
+          <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="openExport()">⬇ Export Video</button>
+          <button class="btn btn-secondary" style="width:100%;justify-content:center" onclick="switchView('editor',document.querySelectorAll('.nav-tab')[2])">✂ Open Editor</button>
+          <button class="btn btn-secondary" style="width:100%;justify-content:center" onclick="generateSubtitles();switchView('editor',document.querySelectorAll('.nav-tab')[2])">🧠 AI Subtitles</button>
+        </div>
+
+        <div>
+          <div class="panel-title">Shortcuts</div>
+          <div style="font-size:9px;color:var(--muted);font-family:var(--font-mono);line-height:2.2">
+            <div><span style="color:var(--text)">SPACE</span> — Start/Stop prompter</div>
+            <div><span style="color:var(--text)">R</span> — Record toggle</div>
+            <div><span style="color:var(--text)">M</span> — Add marker</div>
+            <div><span style="color:var(--text)">↑↓</span> — Speed ±0.1×</div>
+            <div><span style="color:var(--text)">ESC</span> — Reset</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ DASHBOARD VIEW ═══ -->
+    <div id="view-dashboard" class="view" style="flex-direction:column;width:100%;overflow-y:auto">
+      <div class="dash-inner">
+        <div class="dash-hero">
+          <div>
+            <h1>Welcome back, Creator 👋</h1>
+            <p>Ready to record something amazing today?</p>
+            <div style="margin-top:14px;display:flex;gap:8px">
+              <button class="btn btn-primary" onclick="switchView('studio',document.querySelectorAll('.nav-tab')[0])">🎬 New Recording</button>
+              <button class="btn btn-secondary">+ New Script</button>
+            </div>
+          </div>
+          <div style="font-size:64px;opacity:0.25">🎙</div>
+        </div>
+        <div class="dash-stats">
+          <div class="stat-pill"><div class="stat-pill-num">12</div><div class="stat-pill-label">Videos</div></div>
+          <div class="stat-pill"><div class="stat-pill-num">8</div><div class="stat-pill-label">Scripts</div></div>
+          <div class="stat-pill"><div class="stat-pill-num" id="dash-markers">0</div><div class="stat-pill-label">Markers</div></div>
+          <div class="stat-pill"><div class="stat-pill-num">2.4h</div><div class="stat-pill-label">Recorded</div></div>
+        </div>
+        <div>
+          <div style="font-family:var(--font-display);font-weight:700;font-size:15px;margin-bottom:12px">Quick Actions</div>
+          <div class="dash-grid">
+            <div class="dash-card" onclick="switchView('studio',document.querySelectorAll('.nav-tab')[0])"><div class="dash-card-icon">🎬</div><div class="dash-card-title">Recording Studio</div><div class="dash-card-sub">Live teleprompter + video capture</div></div>
+            <div class="dash-card" onclick="switchView('editor',document.querySelectorAll('.nav-tab')[2])"><div class="dash-card-icon">✂️</div><div class="dash-card-title">Video Editor</div><div class="dash-card-sub">Timeline, markers, subtitles</div></div>
+            <div class="dash-card" onclick="openExport()"><div class="dash-card-icon">📤</div><div class="dash-card-title">Export</div><div class="dash-card-sub">MP4 in any aspect ratio</div></div>
+            <div class="dash-card" onclick="generateSubtitles()"><div class="dash-card-icon">🧠</div><div class="dash-card-title">AI Subtitles</div><div class="dash-card-sub">Auto-generate captions</div></div>
+          </div>
+        </div>
+        <div>
+          <div style="font-family:var(--font-display);font-weight:700;font-size:15px;margin-bottom:12px">Recent Projects</div>
+          <div class="dash-grid" id="recent-projects"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ EDITOR VIEW ═══ -->
+    <div id="view-editor" class="view" style="flex-direction:column;width:100%">
+      <div id="editor-toolbar">
+        <span style="font-family:var(--font-display);font-weight:700;font-size:12px">✂ Video Editor</span>
+        <div style="flex:1"></div>
+        <button class="btn btn-secondary" style="padding:5px 10px;font-size:9px" onclick="generateSubtitles()">🧠 AI Subtitles</button>
+        <button class="btn btn-secondary" style="padding:5px 10px;font-size:9px" onclick="extractClip()">✂ Extract Clip</button>
+        <button class="btn btn-primary" style="padding:5px 10px;font-size:9px" onclick="openExport()">⬇ Export</button>
+      </div>
+      <div id="editor-main">
+        <div id="timeline-panel">
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:12px;aspect-ratio:16/9;max-height:220px;display:flex;align-items:center;justify-content:center;position:relative">
+            <video id="editor-video" style="width:100%;height:100%;object-fit:contain" controls></video>
+            <div id="editor-no-video" style="font-size:11px;color:var(--muted);font-family:var(--font-mono);position:absolute;text-align:center;padding:14px">No recording yet.<br>Go to Studio to record.</div>
+          </div>
+          <div style="font-family:var(--font-mono);font-size:9px;color:var(--muted);margin-bottom:5px;display:flex;justify-content:space-between"><span>TIMELINE</span><span id="timeline-duration">0:00</span></div>
+          <div id="timeline-container"><canvas id="timeline-canvas" height="80"></canvas></div>
+          <div style="margin-top:8px;display:flex;gap:5px;flex-wrap:wrap" id="timeline-markers"></div>
+        </div>
+        <div id="subtitle-panel">
+          <div style="font-family:var(--font-display);font-weight:700;font-size:13px;margin-bottom:10px">Subtitles</div>
+          <div id="subtitles-list"><div style="font-size:10px;color:var(--muted);font-family:var(--font-mono)">Press "AI Subtitles" to generate captions automatically.</div></div>
+          <button class="btn btn-secondary" style="width:100%;margin-top:8px;font-size:9px" onclick="addSubtitle()">+ Add Subtitle</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ═══════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════
+const S = {
+  prompterRunning:false, isRecording:false,
+  scrollY:0, speed:1.2, fontSize:22, opacity:0.9,
+  mirrorMode:false, showOverlay:true, showGuides:true,
+  markers:[], recordingStart:null, timerInterval:null,
+  chunkCount:0, recordedChunks:[], mediaRecorder:null,
+  stream:null, facingMode:'user', recordedBlob:null,
+  showGrid:true, showFrame:true, showHolo:false, showScan:false,
+  subtitles:[], totalBytes:0,
+  overlayRenderer:null, overlayScene:null, overlayCamera:null,
+  gridMesh:null, frameMesh:null, holoMesh:null, scanLine:null,
+};
+
+// ═══════════════════════════════════════════════════
+// WEBGL BACKGROUND
+// ═══════════════════════════════════════════════════
+(function(){
+  const c = document.getElementById('webgl-bg');
+  const renderer = new THREE.WebGLRenderer({canvas:c,alpha:true,antialias:true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setSize(innerWidth,innerHeight);
+  const scene = new THREE.Scene();
+  const cam = new THREE.PerspectiveCamera(70,innerWidth/innerHeight,0.1,100);
+  cam.position.z = 5;
+
+  // Particles
+  const N = 500, pos = new Float32Array(N*3);
+  for(let i=0;i<N*3;i++) pos[i]=(Math.random()-0.5)*24;
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  const pts = new THREE.Points(geo,new THREE.PointsMaterial({color:0x7c3aed,size:0.05,transparent:true,opacity:0.45}));
+  scene.add(pts);
+
+  // Ground grid
+  const gGrid = new THREE.Mesh(
+    new THREE.PlaneGeometry(22,22,28,28),
+    new THREE.MeshBasicMaterial({color:0x7c3aed,wireframe:true,transparent:true,opacity:0.035})
+  );
+  gGrid.rotation.x=-Math.PI/2.8; gGrid.position.y=-4;
+  scene.add(gGrid);
+
+  // Rings
+  [0x7c3aed,0x06b6d4,0xf59e0b].forEach((col,i)=>{
+    const m = new THREE.Mesh(
+      new THREE.TorusGeometry(1.6+i*0.9,0.012,8,64),
+      new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:0.1})
+    );
+    m.rotation.x=Math.random()*Math.PI; m.rotation.y=Math.random()*Math.PI;
+    scene.add(m);
+    m._spd = 0.001*(i+1);
+  });
+
+  let t=0;
+  (function loop(){
+    requestAnimationFrame(loop); t+=0.004;
+    pts.rotation.y=t*0.08; pts.rotation.x=t*0.04;
+    gGrid.position.z=Math.sin(t*0.5)*0.4;
+    scene.children.filter(o=>o.isMesh&&o.geometry.type==='TorusGeometry').forEach((r,i)=>{
+      r.rotation.x+=0.002*(i+1); r.rotation.z+=0.0015*(i+1);
+    });
+    renderer.render(scene,cam);
+  })();
+
+  window.addEventListener('resize',()=>{
+    cam.aspect=innerWidth/innerHeight; cam.updateProjectionMatrix();
+    renderer.setSize(innerWidth,innerHeight);
+  });
+})();
+
+// ═══════════════════════════════════════════════════
+// THREE.JS OVERLAY
+// ═══════════════════════════════════════════════════
+function initOverlay(){
+  const canvas = document.getElementById('three-overlay');
+  const frame = document.getElementById('camera-frame');
+  S.overlayRenderer = new THREE.WebGLRenderer({canvas,alpha:true,antialias:true});
+  S.overlayRenderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  S.overlayRenderer.setSize(frame.offsetWidth,frame.offsetHeight);
+  S.overlayRenderer.setClearColor(0,0);
+
+  S.overlayScene = new THREE.Scene();
+  S.overlayCamera = new THREE.OrthographicCamera(-1,1,1,-1,0.1,10);
+  S.overlayCamera.position.z=1;
+
+  // Grid
+  S.gridMesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(2,2,14,20),
+    new THREE.MeshBasicMaterial({color:0x06b6d4,wireframe:true,transparent:true,opacity:0.07})
+  );
+  S.overlayScene.add(S.gridMesh);
+
+  // Cinematic frame corners
+  const s=0.88,c=0.14;
+  const verts=new Float32Array([
+    -s,-s,0,-s+c,-s,0, -s,-s,0,-s,-s+c,0,
+     s,-s,0, s-c,-s,0,  s,-s,0, s,-s+c,0,
+    -s, s,0,-s+c, s,0, -s, s,0,-s, s-c,0,
+     s, s,0, s-c, s,0,  s, s,0, s, s-c,0,
+  ]);
+  const fGeo=new THREE.BufferGeometry();
+  fGeo.setAttribute('position',new THREE.BufferAttribute(verts,3));
+  S.frameMesh = new THREE.LineSegments(fGeo,new THREE.LineBasicMaterial({color:0x06b6d4,transparent:true,opacity:0.65}));
+  S.overlayScene.add(S.frameMesh);
+
+  // Holo ring
+  S.holoMesh = new THREE.Mesh(
+    new THREE.RingGeometry(0.33,0.35,64),
+    new THREE.MeshBasicMaterial({color:0x7c3aed,transparent:true,opacity:0,side:THREE.DoubleSide})
+  );
+  S.holoMesh.position.y=0.28;
+  S.overlayScene.add(S.holoMesh);
+
+  // Scan line
+  const sGeo=new THREE.PlaneGeometry(2,0.004);
+  S.scanLine = new THREE.Mesh(sGeo,new THREE.MeshBasicMaterial({color:0x06b6d4,transparent:true,opacity:0}));
+  S.overlayScene.add(S.scanLine);
+
+  new ResizeObserver(()=>{
+    S.overlayRenderer.setSize(frame.offsetWidth,frame.offsetHeight);
+  }).observe(frame);
+
+  let ot=0;
+  (function loop(){
+    requestAnimationFrame(loop); ot+=0.02;
+    if(S.gridMesh){ S.gridMesh.visible=S.showGrid; S.gridMesh.material.opacity=0.05+Math.sin(ot)*0.02; }
+    if(S.frameMesh){ S.frameMesh.visible=S.showFrame; S.frameMesh.material.opacity=0.4+Math.sin(ot*0.5)*0.18; }
+    if(S.holoMesh){
+      S.holoMesh.visible=S.showHolo;
+      S.holoMesh.material.opacity=S.showHolo?0.5+Math.sin(ot)*0.3:0;
+      S.holoMesh.rotation.z=ot*0.6;
+    }
+    if(S.scanLine){
+      S.scanLine.visible=S.showScan;
+      S.scanLine.material.opacity=S.showScan?0.6:0;
+      S.scanLine.position.y = S.showScan ? Math.sin(ot*0.7) : 0;
+    }
+    S.overlayRenderer.render(S.overlayScene,S.overlayCamera);
+  })();
+}
+
+// ═══════════════════════════════════════════════════
+// CAMERA
+// ═══════════════════════════════════════════════════
+async function initCamera(){
+  try {
+    const constraints={video:{facingMode:S.facingMode,width:{ideal:1920},height:{ideal:1080}},audio:{echoCancellation:true,noiseSuppression:true}};
+    if(S.stream) S.stream.getTracks().forEach(t=>t.stop());
+    S.stream = await navigator.mediaDevices.getUserMedia(constraints);
+    document.getElementById('video-preview').srcObject=S.stream;
+    document.getElementById('perm-overlay').classList.add('hidden');
+    await populateDevices();
+    notify('success','Camera connected ✓');
+  } catch(e){ notify('error','Camera: '+e.message); }
+}
+
+async function populateDevices(){
+  try {
+    const devs=await navigator.mediaDevices.enumerateDevices();
+    const cs=document.getElementById('camera-select'), ms=document.getElementById('mic-select');
+    cs.innerHTML=''; ms.innerHTML='';
+    devs.forEach(d=>{
+      const o=document.createElement('option');
+      o.value=d.deviceId; o.textContent=d.label||d.kind;
+      if(d.kind==='videoinput') cs.appendChild(o);
+      if(d.kind==='audioinput') ms.appendChild(o);
+    });
+  }catch(e){}
+}
+
+function flipCamera(){ S.facingMode=S.facingMode==='user'?'environment':'user'; initCamera(); }
+function skipPerm(){ document.getElementById('perm-overlay').classList.add('hidden'); notify('warn','Teleprompter mode — no camera'); }
+
+// ═══════════════════════════════════════════════════
+// TELEPROMPTER ENGINE
+// ═══════════════════════════════════════════════════
+let prompterRAF=null, lastTS=null;
+
+function buildScript(){
+  const raw=document.getElementById('script-textarea').value;
+  document.getElementById('teleprompter-text').innerHTML = raw
+    .replace(/\[SECTION:\s*([^\]]+)\]/g,'<div style="color:var(--accent3);font-size:13px;letter-spacing:0.18em;text-transform:uppercase;margin:18px 0 6px;font-weight:400">── $1 ──</div>')
+    .replace(/\[PAUSE\]/g,'<div style="color:var(--accent);font-size:16px;margin:14px 0">⏸ PAUSE</div>')
+    .replace(/\*\*([^*]+)\*\*/g,'<strong style="color:var(--accent2)">$1</strong>')
+    .replace(/\n/g,'<br>');
+  updateAI();
+}
+
+function togglePrompter(){
+  S.prompterRunning=!S.prompterRunning;
+  const btn=document.getElementById('btn-start-prompt');
+  const badge=document.getElementById('prompter-status');
+  if(S.prompterRunning){
+    btn.textContent='⏸ Pause Teleprompter';
+    badge.className='badge badge-purple'; badge.textContent='RUNNING';
+    buildScript(); lastTS=null;
+    prompterRAF=requestAnimationFrame(runPrompter);
+  } else {
+    btn.textContent='▶ Start Teleprompter';
+    badge.className='badge badge-cyan'; badge.textContent='PAUSED';
+    if(prompterRAF) cancelAnimationFrame(prompterRAF);
+  }
+}
+
+function runPrompter(ts){
+  if(!S.prompterRunning) return;
+  if(lastTS===null) lastTS=ts;
+  const delta=(ts-lastTS)/1000; lastTS=ts;
+  S.scrollY+=S.speed*delta*50;
+  document.getElementById('teleprompter-track').style.transform=`translateY(-${S.scrollY}px)`;
+  const h=document.getElementById('teleprompter-text').scrollHeight;
+  if(S.scrollY>h){ S.prompterRunning=false; document.getElementById('btn-start-prompt').textContent='▶ Start Teleprompter'; document.getElementById('prompter-status').textContent='DONE ✓'; notify('success','Script complete! 🎉'); return; }
+  prompterRAF=requestAnimationFrame(runPrompter);
+}
+
+function resetPrompter(){
+  S.scrollY=0; S.prompterRunning=false;
+  if(prompterRAF) cancelAnimationFrame(prompterRAF);
+  document.getElementById('teleprompter-track').style.transform='translateY(0)';
+  document.getElementById('btn-start-prompt').textContent='▶ Start Teleprompter';
+  document.getElementById('prompter-status').className='badge badge-cyan';
+  document.getElementById('prompter-status').textContent='STOPPED';
+  buildScript();
+}
+
+// ═══════════════════════════════════════════════════
+// CONTROLS
+// ═══════════════════════════════════════════════════
+function updateSpeed(el){ S.speed=parseFloat(el.value); document.getElementById('val-speed').textContent=S.speed.toFixed(1)+'×'; updateAI(); }
+function updateFont(el){ S.fontSize=parseInt(el.value); document.getElementById('val-font').textContent=S.fontSize+'px'; document.getElementById('teleprompter-text').style.fontSize=S.fontSize+'px'; }
+function updateOpacity(el){ S.opacity=parseFloat(el.value); document.getElementById('val-opacity').textContent=Math.round(S.opacity*100)+'%'; document.getElementById('teleprompter-overlay').style.opacity=S.opacity; }
+function toggleMirror(){ S.mirrorMode=!S.mirrorMode; document.getElementById('tog-mirror').classList.toggle('on',S.mirrorMode); document.getElementById('teleprompter-text').classList.toggle('mirror',S.mirrorMode); document.getElementById('video-preview').style.transform=S.mirrorMode?'scaleX(-1)':''; }
+function toggleOverlay(){ S.showOverlay=!S.showOverlay; document.getElementById('tog-overlay').classList.toggle('on',S.showOverlay); document.getElementById('teleprompter-overlay').style.display=S.showOverlay?'flex':'none'; }
+function toggleGuides(){ S.showGuides=!S.showGuides; document.getElementById('tog-guide').classList.toggle('on',S.showGuides); ['eye-guide','eye-guide-label','face-frame','reading-line'].forEach(id=>document.getElementById(id).style.opacity=S.showGuides?'1':'0'); }
+function toggleGrid(){ S.showGrid=!S.showGrid; document.getElementById('tog-grid').classList.toggle('on',S.showGrid); }
+function toggleFrame(){ S.showFrame=!S.showFrame; document.getElementById('tog-frame').classList.toggle('on',S.showFrame); }
+function toggleHolo(){ S.showHolo=!S.showHolo; document.getElementById('tog-holo').classList.toggle('on',S.showHolo); }
+function toggleScan(){ S.showScan=!S.showScan; document.getElementById('tog-scan').classList.toggle('on',S.showScan); }
+
+// ═══════════════════════════════════════════════════
+// RECORDING ENGINE
+// ═══════════════════════════════════════════════════
+async function toggleRecord(){
+  if(!S.stream){ await initCamera(); if(!S.stream) return; }
+  S.isRecording ? stopRecording() : startRecording();
+}
+
+function startRecording(){
+  S.recordedChunks=[]; S.chunkCount=0; S.totalBytes=0;
+  const types=['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm','video/mp4'];
+  const mime=types.find(t=>MediaRecorder.isTypeSupported(t))||'';
+  try{ S.mediaRecorder=new MediaRecorder(S.stream,{mimeType:mime,videoBitsPerSecond:5000000}); }
+  catch(e){ S.mediaRecorder=new MediaRecorder(S.stream); }
+
+  S.mediaRecorder.ondataavailable=e=>{
+    if(e.data&&e.data.size>0){
+      S.recordedChunks.push(e.data); S.chunkCount++; S.totalBytes+=e.data.size;
+      document.getElementById('chunk-count').textContent=S.chunkCount;
+      document.getElementById('rec-size').textContent=fmtBytes(S.totalBytes);
+    }
+  };
+  S.mediaRecorder.onstop=()=>{
+    const blob=new Blob(S.recordedChunks,{type:mime||'video/webm'});
+    S.recordedBlob=blob;
+    const url=URL.createObjectURL(blob);
+    const ev=document.getElementById('editor-video');
+    ev.src=url; ev.style.display='block';
+    document.getElementById('editor-no-video').style.display='none';
+    ev.onloadedmetadata=()=>{ drawTimeline(ev.duration); document.getElementById('timeline-duration').textContent=fmtTime(ev.duration); updateTimelineMarkers(); };
+    notify('success','Recording saved — '+fmtBytes(blob.size));
+  };
+  S.mediaRecorder.start(500);
+  S.isRecording=true; S.recordingStart=Date.now();
+  document.getElementById('btn-record').classList.add('recording');
+  document.getElementById('btn-record').textContent='⏹';
+  document.getElementById('rec-indicator').classList.add('active');
+  S.timerInterval=setInterval(()=>{
+    const e=Math.floor((Date.now()-S.recordingStart)/1000);
+    document.getElementById('rec-timer').textContent=`${String(Math.floor(e/60)).padStart(2,'0')}:${String(e%60).padStart(2,'0')}`;
+  },500);
+  if(!S.prompterRunning) togglePrompter();
+  notify('warn','● Recording started — say your lines!');
+}
+
+function stopRecording(){
+  if(S.mediaRecorder&&S.mediaRecorder.state!=='inactive') S.mediaRecorder.stop();
+  S.isRecording=false; clearInterval(S.timerInterval);
+  document.getElementById('btn-record').classList.remove('recording');
+  document.getElementById('btn-record').textContent='⏺';
+  document.getElementById('rec-indicator').classList.remove('active');
+  document.getElementById('rec-timer').textContent='00:00';
+  if(S.prompterRunning) togglePrompter();
+}
+
+// ═══════════════════════════════════════════════════
+// MARKERS
+// ═══════════════════════════════════════════════════
+function addMarker(){
+  if(!S.isRecording){ notify('warn','Start recording first'); return; }
+  const el=(Date.now()-S.recordingStart)/1000;
+  const ts=fmtTime(el);
+  S.markers.push({ts,elapsed:el,label:'Marker '+(S.markers.length+1)});
+  const list=document.getElementById('markers-list');
+  if(list.children.length&&list.children[0].style.color) list.innerHTML='';
+  const item=document.createElement('div'); item.className='marker-item';
+  item.innerHTML=`<span>🚩 ${S.markers[S.markers.length-1].label}</span><span>${ts}</span>`;
+  list.appendChild(item);
+  document.getElementById('marker-count').textContent=S.markers.length;
+  document.getElementById('dash-markers').textContent=S.markers.length;
+  notify('success','Marker at '+ts);
+}
+
+// ═══════════════════════════════════════════════════
+// AI STATS
+// ═══════════════════════════════════════════════════
+function updateAI(){
+  const txt=document.getElementById('script-textarea').value;
+  const words=txt.trim().split(/\s+/).filter(Boolean).length;
+  const wpm=Math.round(130/S.speed);
+  const secs=Math.round((words/wpm)*60);
+  const sections=(txt.match(/\[SECTION:/g)||[]).length;
+  const pauses=(txt.match(/\[PAUSE\]/g)||[]).length;
+  document.getElementById('ai-words').textContent=words;
+  document.getElementById('ai-duration').textContent=`~${fmtTime(secs)}`;
+  document.getElementById('ai-wpm').textContent=wpm;
+  document.getElementById('ai-sections').textContent=sections;
+  document.getElementById('ai-pauses').textContent=pauses;
+}
+
+// ═══════════════════════════════════════════════════
+// TIMELINE
+// ═══════════════════════════════════════════════════
+function drawTimeline(dur){
+  const canvas=document.getElementById('timeline-canvas');
+  const cont=document.getElementById('timeline-container');
+  canvas.width=cont.offsetWidth; canvas.height=80;
+  const ctx=canvas.getContext('2d');
+  ctx.fillStyle='#0f0f1a'; ctx.fillRect(0,0,canvas.width,80);
+  // Waveform sim
+  ctx.fillStyle='rgba(124,58,237,0.55)';
+  for(let x=0;x<canvas.width;x+=3){ const h=8+Math.random()*42; ctx.fillRect(x,40-h/2,2,h); }
+  // Time ticks
+  ctx.fillStyle='rgba(255,255,255,0.15)'; ctx.font='8px Space Mono';
+  for(let i=0;i<=dur;i+=10){ const x=(i/dur)*canvas.width; ctx.fillRect(x,72,1,8); ctx.fillStyle='rgba(255,255,255,0.3)'; ctx.fillText(fmtTime(i),x+2,78); ctx.fillStyle='rgba(255,255,255,0.15)'; }
+  // Markers
+  S.markers.forEach(m=>{
+    const x=(m.elapsed/dur)*canvas.width;
+    ctx.strokeStyle='#f59e0b'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,80); ctx.stroke();
+    ctx.fillStyle='#f59e0b'; ctx.font='8px Space Mono'; ctx.fillText(m.ts,x+3,11);
+  });
+  // Click seek
+  canvas.onclick=e=>{ const r=canvas.getBoundingClientRect(); const ev=document.getElementById('editor-video'); if(ev.duration) ev.currentTime=((e.clientX-r.left)/canvas.width)*ev.duration; };
+}
+
+function updateTimelineMarkers(){
+  const cont=document.getElementById('timeline-markers'); cont.innerHTML='';
+  S.markers.forEach(m=>{
+    const btn=document.createElement('button'); btn.className='btn btn-secondary';
+    btn.style.cssText='padding:3px 8px;font-size:9px;color:var(--accent3);border-color:rgba(245,158,11,0.4)';
+    btn.textContent='🚩 '+m.ts;
+    btn.onclick=()=>{ const ev=document.getElementById('editor-video'); if(ev.duration) ev.currentTime=m.elapsed; };
+    cont.appendChild(btn);
+  });
+}
+
+// ═══════════════════════════════════════════════════
+// SUBTITLES
+// ═══════════════════════════════════════════════════
+function generateSubtitles(){
+  const txt=document.getElementById('script-textarea').value;
+  const sents=txt.replace(/\[.*?\]/g,'').split(/(?<=[.!?])\s+/).filter(s=>s.trim().length>4);
+  const list=document.getElementById('subtitles-list'); list.innerHTML='';
+  S.subtitles=[];
+  sents.slice(0,12).forEach((s,i)=>{ const ts=i*7; S.subtitles.push({ts,text:s.trim()}); addSubtitleItem(list,fmtTime(ts),s.trim()); });
+  notify('success','Generated '+Math.min(sents.length,12)+' subtitle segments ✓');
+}
+
+function addSubtitle(){ addSubtitleItem(document.getElementById('subtitles-list'),fmtTime(0),''); }
+function addSubtitleItem(list,ts,text){
+  const item=document.createElement('div'); item.className='subtitle-item';
+  item.innerHTML=`<span class="subtitle-ts">${ts}</span><textarea class="subtitle-text-input" placeholder="Subtitle text...">${text}</textarea>`;
+  list.appendChild(item);
+}
+
+function extractClip(){ const ev=document.getElementById('editor-video'); if(!ev.src||!ev.duration){ notify('warn','No video loaded'); return; } notify('success','Clip extracted at '+fmtTime(ev.currentTime)+' ✂'); }
+
+// ═══════════════════════════════════════════════════
+// EXPORT
+// ═══════════════════════════════════════════════════
+let selRatio='9:16';
+function selectExport(el,r){ document.querySelectorAll('.export-opt').forEach(e=>e.classList.remove('selected')); el.classList.add('selected'); selRatio=r; }
+function openExport(){ document.getElementById('export-modal').classList.add('open'); }
+function closeExport(){ document.getElementById('export-modal').classList.remove('open'); }
+
+function startExport(){
+  if(!S.recordedBlob){ notify('warn','No recording yet — go to Studio and record first'); closeExport(); return; }
+  const prog=document.getElementById('export-progress'), bar=document.getElementById('export-bar');
+  const dl=document.getElementById('download-area');
+  prog.classList.add('active'); dl.style.display='none'; bar.style.width='0%';
+  let p=0;
+  const iv=setInterval(()=>{
+    p+=Math.random()*18; if(p>=100){ p=100; clearInterval(iv); finishExport(dl,prog); }
+    bar.style.width=p+'%';
+  },120);
+}
+
+function finishExport(dl,prog){
+  const url=URL.createObjectURL(S.recordedBlob);
+  dl.style.display='block';
+  dl.innerHTML=`<a href="${url}" download="prompter-studio-${selRatio.replace(':','x')}-${Date.now()}.webm" style="display:inline-flex;align-items:center;gap:8px;padding:10px 20px;background:var(--success);border-radius:8px;color:#fff;text-decoration:none;font-family:var(--font-display);font-size:11px;font-weight:700;letter-spacing:0.06em">⬇ Download ${selRatio} Video</a>`;
+  prog.classList.remove('active');
+  notify('success','Video ready! Click to download 🎉');
+}
+
+// ═══════════════════════════════════════════════════
+// VIEW SWITCH
+// ═══════════════════════════════════════════════════
+function switchView(v,tab){
+  document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(x=>x.classList.remove('active'));
+  document.getElementById('view-'+v).classList.add('active');
+  if(tab) tab.classList.add('active');
+}
+
+// ═══════════════════════════════════════════════════
+// NOTIFICATIONS
+// ═══════════════════════════════════════════════════
+const icons={success:'✅',warn:'⚠️',error:'❌'};
+function notify(type,msg){
+  const n=document.createElement('div'); n.className='notif '+type;
+  n.innerHTML=`<span>${icons[type]||'ℹ️'}</span><span>${msg}</span>`;
+  document.getElementById('notifications').appendChild(n);
+  setTimeout(()=>{ n.style.animation='slide-in 0.25s ease reverse'; setTimeout(()=>n.remove(),280); },2800);
+}
+
+// ═══════════════════════════════════════════════════
+// KEYBOARD
+// ═══════════════════════════════════════════════════
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='TEXTAREA'||e.target.tagName==='INPUT') return;
+  if(e.code==='Space'){ e.preventDefault(); togglePrompter(); }
+  if(e.key==='r'||e.key==='R') toggleRecord();
+  if(e.key==='m'||e.key==='M') addMarker();
+  if(e.key==='Escape') resetPrompter();
+  if(e.key==='ArrowUp'){ const el=document.getElementById('ctrl-speed'); el.value=Math.min(4,parseFloat(el.value)+0.1); updateSpeed(el); }
+  if(e.key==='ArrowDown'){ const el=document.getElementById('ctrl-speed'); el.value=Math.max(0.2,parseFloat(el.value)-0.1); updateSpeed(el); }
+});
+
+// ═══════════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════════
+function fmtTime(s){ const m=Math.floor(s/60); return `${m}:${String(Math.floor(s%60)).padStart(2,'0')}`; }
+function fmtBytes(b){ if(b<1048576) return (b/1024).toFixed(0)+'KB'; return (b/1048576).toFixed(1)+'MB'; }
+
+// ═══════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════
+window.addEventListener('load',()=>{
+  initOverlay();
+  buildScript();
+  document.getElementById('script-textarea').addEventListener('input', buildScript);
+
+  // Recent projects
+  [
+    {e:'🎬',t:'Product Launch Video',d:'2 days ago',dur:'3:42'},
+    {e:'🎙',t:'Podcast Intro',d:'4 days ago',dur:'1:15'},
+    {e:'📱',t:'Instagram Reel — Tips',d:'1 week ago',dur:'0:55'},
+  ].forEach(p=>{
+    const c=document.createElement('div'); c.className='dash-card';
+    c.innerHTML=`<div class="dash-card-icon">${p.e}</div><div class="dash-card-title">${p.t}</div><div class="dash-card-sub">${p.d} &bull; ${p.dur}</div>`;
+    document.getElementById('recent-projects').appendChild(c);
+  });
+
+  // Auto-request camera
+  if(navigator.mediaDevices){
+    document.getElementById('btn-request-perm').onclick=initCamera;
+    navigator.mediaDevices.getUserMedia({video:true,audio:true})
+      .then(s=>{ S.stream=s; document.getElementById('video-preview').srcObject=s; document.getElementById('perm-overlay').classList.add('hidden'); populateDevices(); })
+      .catch(()=>{});
+  } else {
+    document.getElementById('perm-overlay').classList.add('hidden');
+  }
+});
+</script>
+</body>
+</html>

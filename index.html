@@ -2,1048 +2,1272 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#080810">
+<meta name="theme-color" content="#05050e">
 <title>Prompter Studio</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800&family=Lexend+Mega:wght@400;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
+/* ═══════════════════════════════════════════════
+   DESIGN TOKENS
+═══════════════════════════════════════════════ */
 :root {
-  --bg:        #080810;
-  --card:      #0f0f1c;
-  --card2:     #14142a;
-  --border:    rgba(255,255,255,0.08);
-  --red:       #ff3b3b;
-  --cyan:      #00d4ff;
-  --gold:      #ffb800;
-  --white:     #f2f2ff;
-  --muted:     #5a5a7a;
-  --font-h:    'Bebas Neue', sans-serif;
-  --font-b:    'Nunito', sans-serif;
-  --safe-b:    env(safe-area-inset-bottom, 0px);
-  --safe-t:    env(safe-area-inset-top, 0px);
+  /* Colors */
+  --bg:      #05050e;
+  --s1:      #0b0b1a;
+  --s2:      #101022;
+  --s3:      #161630;
+  --brd:     rgba(255,255,255,0.07);
+  --brd2:    rgba(255,255,255,0.13);
+  --cyan:    #00e5ff;
+  --cyanD:   #00b0cc;
+  --red:     #ff2d2d;
+  --gold:    #ffbe00;
+  --green:   #00e676;
+  --white:   #f0f0ff;
+  --mid:     #8080aa;
+  --dim:     #404060;
+
+  /* Fonts */
+  --fread: 'Lexend', sans-serif;          /* teleprompter text */
+  --fmega: 'Lexend Mega', sans-serif;     /* logo/display */
+  --fmono: 'JetBrains Mono', monospace;  /* ui labels */
+
+  /* Safe areas */
+  --sat: env(safe-area-inset-top,    0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left,   0px);
+  --sar: env(safe-area-inset-right,  0px);
+
+  /* Teleprompter font — responsive, set by JS */
+  --tp-size: 7vw;
+  --tp-lh:   1.75;
+  --tp-w:    700;
 }
 
-/* ─── RESET ─── */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-html { height: 100%; -webkit-text-size-adjust: 100%; }
+/* ═══════════════════════════════════════════════
+   RESET
+═══════════════════════════════════════════════ */
+*,*::before,*::after {
+  box-sizing:border-box; margin:0; padding:0;
+  -webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;
+}
+html { height:100%; -webkit-text-size-adjust:100%; }
 body {
-  height: 100%; width: 100%; overflow: hidden;
-  background: var(--bg); color: var(--white);
-  font-family: var(--font-b);
-  padding-top: var(--safe-t);
+  height:100%; overflow:hidden;
+  background:var(--bg); color:var(--white);
+  font-family:var(--fread);
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  text-rendering:optimizeLegibility;
 }
-button { font-family: var(--font-b); cursor: pointer; border: none; outline: none; }
-textarea { font-family: var(--font-b); outline: none; border: none; resize: none; }
-select { font-family: var(--font-b); outline: none; }
+button,select,textarea,input { font-family:inherit; outline:none; border:none; background:none; }
+button { cursor:pointer; }
+textarea { resize:none; }
 
-/* ─── SCREENS ─── */
-.screen { position: fixed; inset: 0; top: var(--safe-t); display: flex; flex-direction: column; transition: opacity 0.3s, transform 0.3s; }
-.screen.hidden { opacity: 0; pointer-events: none; transform: translateY(20px); }
+/* ═══════════════════════════════════════════════
+   SCREENS
+═══════════════════════════════════════════════ */
+.screen {
+  position:fixed; inset:0;
+  padding: var(--sat) var(--sar) var(--sab) var(--sal);
+  display:flex; flex-direction:column;
+  transition: opacity .3s ease, transform .3s ease;
+  will-change: opacity, transform;
+}
+.screen.off { opacity:0; pointer-events:none; transform:translateY(16px); }
 
-/* ════════════════════════════════════
-   SCREEN 1 — SCRIPT SETUP
-════════════════════════════════════ */
-#screen-script {
-  background: var(--bg);
-  padding: 0;
+
+/* ═══════════════════════════════════════════════
+   ① SETUP SCREEN
+═══════════════════════════════════════════════ */
+#s-setup { background:var(--bg); }
+
+.app-bar {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:13px 20px;
+  border-bottom:1px solid var(--brd);
+  flex-shrink:0;
+}
+.app-logo {
+  font-family:var(--fmega); font-size:16px; font-weight:700;
+  letter-spacing:.12em; text-transform:uppercase;
+  display:flex; align-items:center; gap:9px;
+}
+.live-dot {
+  width:9px; height:9px; border-radius:50%;
+  background:var(--red); box-shadow:0 0 10px var(--red);
+  animation:pulse 2.5s ease-in-out infinite;
+  flex-shrink:0;
+}
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.25} }
+.accent { color:var(--cyan); }
+.chip {
+  font-family:var(--fmono); font-size:9px; font-weight:500;
+  letter-spacing:.16em; text-transform:uppercase;
+  color:var(--cyan); border:1px solid rgba(0,229,255,.22);
+  border-radius:6px; padding:4px 9px;
+  background:rgba(0,229,255,.05);
 }
 
-.top-bar {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 14px 20px 10px;
-  border-bottom: 1px solid var(--border);
-}
-.logo-text {
-  font-family: var(--font-h);
-  font-size: 22px; letter-spacing: 0.08em;
-  color: var(--white);
-}
-.logo-text span { color: var(--cyan); }
-.logo-dot {
-  display: inline-block; width: 7px; height: 7px;
-  border-radius: 50%; background: var(--red);
-  margin-right: 7px;
-  box-shadow: 0 0 8px var(--red);
-  animation: blink 2.5s infinite;
-}
-@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
-
-.script-body {
-  flex: 1; overflow-y: auto;
-  padding: 16px 18px;
-  display: flex; flex-direction: column; gap: 14px;
+/* Scroll body */
+.setup-scroll {
+  flex:1; overflow-y:auto; overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;
+  padding:18px 18px calc(var(--sab) + 20px);
+  display:flex; flex-direction:column; gap:16px;
 }
 
-.section-label {
-  font-size: 10px; font-weight: 700; letter-spacing: 0.18em;
-  text-transform: uppercase; color: var(--muted);
-  padding-left: 2px;
+.section-lbl {
+  font-family:var(--fmono); font-size:9px; font-weight:500;
+  letter-spacing:.22em; text-transform:uppercase; color:var(--dim);
+  padding-left:2px;
 }
 
+/* Script box */
+.script-box {
+  background:var(--s1); border:1px solid var(--brd);
+  border-radius:16px; overflow:hidden;
+  transition:border-color .2s, box-shadow .2s;
+}
+.script-box:focus-within {
+  border-color:rgba(0,229,255,.32);
+  box-shadow:0 0 0 3px rgba(0,229,255,.06);
+}
 #script-input {
-  width: 100%; min-height: 190px;
-  background: var(--card); border: 1px solid var(--border);
-  border-radius: 14px; padding: 14px 16px;
-  color: var(--white); font-size: 15px; line-height: 1.7;
-  transition: border-color 0.2s;
+  width:100%; min-height:170px;
+  background:transparent; padding:15px 17px;
+  color:var(--white); font-size:15px;
+  font-family:var(--fread); font-weight:400; line-height:1.72;
 }
-#script-input:focus { border-color: rgba(0,212,255,0.4); background: var(--card2); }
+#script-input::placeholder { color:var(--dim); }
+.script-meta {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:8px 15px; border-top:1px solid var(--brd);
+  font-family:var(--fmono); font-size:10px;
+  color:var(--dim);
+}
+.script-meta span { color:var(--cyan); }
 
-/* Controls grid */
-.controls-grid {
-  display: grid; grid-template-columns: 1fr 1fr;
-  gap: 10px;
+/* 2-col */
+.two-col { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+
+/* Control card */
+.ccard {
+  background:var(--s1); border:1px solid var(--brd);
+  border-radius:14px; padding:14px;
+  display:flex; flex-direction:column; gap:9px;
 }
-.ctrl-card {
-  background: var(--card); border: 1px solid var(--border);
-  border-radius: 14px; padding: 12px 14px;
+.ccard-top { display:flex; justify-content:space-between; align-items:baseline; }
+.ccard-lbl {
+  font-family:var(--fmono); font-size:9px; font-weight:500;
+  letter-spacing:.18em; text-transform:uppercase; color:var(--dim);
 }
-.ctrl-card-label {
-  font-size: 9px; font-weight: 700; letter-spacing: 0.15em;
-  text-transform: uppercase; color: var(--muted); margin-bottom: 10px;
+.ccard-val {
+  font-family:var(--fmono); font-size:20px; font-weight:700;
+  color:var(--cyan); line-height:1;
 }
-.ctrl-card-val {
-  font-family: var(--font-h); font-size: 26px; color: var(--cyan);
-  margin-bottom: 6px;
-}
+.ccard-val small { font-size:11px; color:var(--mid); margin-left:2px; }
+
+/* Slider */
 input[type=range] {
-  width: 100%; -webkit-appearance: none; height: 4px;
-  background: var(--card2); border-radius: 2px;
+  -webkit-appearance:none; appearance:none;
+  width:100%; height:3px; background:var(--s3); border-radius:99px; cursor:pointer;
 }
 input[type=range]::-webkit-slider-thumb {
-  -webkit-appearance: none; width: 18px; height: 18px;
-  border-radius: 50%; background: var(--cyan);
-  box-shadow: 0 0 8px rgba(0,212,255,0.6);
-  cursor: pointer;
+  -webkit-appearance:none; width:22px; height:22px; border-radius:50%;
+  background:var(--cyan);
+  box-shadow:0 0 0 4px rgba(0,229,255,.16), 0 0 12px rgba(0,229,255,.45);
+  cursor:grab; transition:box-shadow .15s;
 }
+input[type=range]:active::-webkit-slider-thumb {
+  cursor:grabbing; box-shadow:0 0 0 7px rgba(0,229,255,.2), 0 0 20px rgba(0,229,255,.7);
+}
+
+/* Live estimate card */
+.est-card {
+  background:linear-gradient(135deg, rgba(0,229,255,.07), rgba(0,229,255,.02));
+  border:1px solid rgba(0,229,255,.16); border-radius:14px;
+  padding:15px 17px;
+  display:flex; justify-content:space-between; align-items:center;
+}
+.est-left { display:flex; flex-direction:column; gap:3px; }
+.est-num { font-family:var(--fmono); font-size:34px; font-weight:700; color:var(--white); line-height:1; }
+.est-lbl { font-family:var(--fmono); font-size:9px; letter-spacing:.18em; text-transform:uppercase; color:var(--dim); }
+.est-right { text-align:right; display:flex; flex-direction:column; gap:6px; align-items:flex-end; }
+.est-wpm { font-family:var(--fmono); font-size:22px; font-weight:700; color:var(--cyan); }
+.est-sub { font-family:var(--fmono); font-size:9px; color:var(--dim); letter-spacing:.1em; }
+
+/* Quality pills */
+.qual-row { display:grid; grid-template-columns:repeat(3,1fr); gap:7px; }
+.qpill {
+  background:var(--s1); border:1px solid var(--brd);
+  border-radius:12px; padding:11px 6px; text-align:center; cursor:pointer;
+  transition:all .18s;
+}
+.qpill.sel {
+  background:rgba(0,229,255,.09); border-color:rgba(0,229,255,.45);
+}
+.qpill-res { font-family:var(--fmono); font-size:14px; font-weight:700; color:var(--white); }
+.qpill.sel .qpill-res { color:var(--cyan); }
+.qpill-fps { font-family:var(--fmono); font-size:8px; color:var(--dim); margin-top:3px; letter-spacing:.07em; }
 
 /* Toggle pills */
-.toggle-pills {
-  display: flex; gap: 8px;
-}
+.pills { display:flex; gap:7px; }
 .pill {
-  flex: 1; padding: 10px 0; font-size: 12px; font-weight: 700;
-  letter-spacing: 0.04em; text-transform: uppercase;
-  border-radius: 10px; border: 1px solid var(--border);
-  background: var(--card); color: var(--muted);
-  transition: all 0.18s; text-align: center;
+  flex:1; padding:12px 4px;
+  font-family:var(--fmono); font-size:10px; font-weight:500;
+  letter-spacing:.06em; text-transform:uppercase;
+  border-radius:11px; border:1px solid var(--brd);
+  background:var(--s1); color:var(--dim);
+  transition:all .18s; text-align:center;
 }
-.pill.on {
-  background: rgba(0,212,255,0.12);
-  border-color: rgba(0,212,255,0.5);
-  color: var(--cyan);
-}
-.pill.on-red {
-  background: rgba(255,59,59,0.12);
-  border-color: rgba(255,59,59,0.5);
-  color: var(--red);
-}
+.pill.on { background:rgba(0,229,255,.09); border-color:rgba(0,229,255,.38); color:var(--cyan); }
+.pill.on-r { background:rgba(255,45,45,.08); border-color:rgba(255,45,45,.38); color:var(--red); }
 
 /* Camera select */
-.cam-select {
-  width: 100%; background: var(--card); border: 1px solid var(--border);
-  border-radius: 12px; padding: 12px 14px;
-  color: var(--white); font-size: 14px; font-weight: 600;
-  -webkit-appearance: none; appearance: none;
+.sel-wrap {
+  background:var(--s1); border:1px solid var(--brd);
+  border-radius:13px; padding:0 15px;
+  display:flex; align-items:center; gap:10px;
+}
+.sel-wrap .icon { color:var(--mid); font-size:17px; flex-shrink:0; }
+.cam-sel {
+  flex:1; padding:14px 0;
+  color:var(--white); font-size:14px; font-weight:500;
+  -webkit-appearance:none; appearance:none; cursor:pointer;
+}
+.cam-sel option { background:var(--s2); }
+
+/* Highlight mode selector */
+.hm-row { display:grid; grid-template-columns:repeat(3,1fr); gap:7px; }
+.hm-opt {
+  padding:11px 4px; text-align:center; cursor:pointer;
+  background:var(--s1); border:1px solid var(--brd); border-radius:11px;
+  transition:all .18s; font-size:11px; font-weight:600; color:var(--mid);
+}
+.hm-opt.sel { background:rgba(0,229,255,.09); border-color:rgba(0,229,255,.4); color:var(--cyan); }
+.hm-icon { font-size:18px; display:block; margin-bottom:3px; }
+
+/* CTA */
+.btn-cta {
+  width:100%; padding:18px;
+  background:linear-gradient(135deg, var(--cyan) 0%, var(--cyanD) 100%);
+  border-radius:16px; color:#05050e;
+  font-size:15px; font-weight:800; letter-spacing:.13em; text-transform:uppercase;
+  box-shadow:0 8px 32px rgba(0,229,255,.28), 0 2px 8px rgba(0,229,255,.18);
+  transition:all .18s;
+}
+.btn-cta:active { transform:scale(.97); box-shadow:0 3px 12px rgba(0,229,255,.18); }
+
+
+/* ═══════════════════════════════════════════════
+   ② STUDIO SCREEN
+═══════════════════════════════════════════════ */
+#s-studio { background:#000; overflow:hidden; }
+
+/* Camera — full screen, GPU layer */
+#cam-video {
+  position:absolute; inset:0; width:100%; height:100%;
+  object-fit:cover;
+  transform:translateZ(0);
+  will-change:transform;
 }
 
-/* START button */
-.btn-start {
-  width: 100%; padding: 18px;
-  background: linear-gradient(135deg, var(--cyan), #0090cc);
-  border-radius: 16px; color: var(--bg);
-  font-size: 16px; font-weight: 800; letter-spacing: 0.1em;
-  text-transform: uppercase;
-  box-shadow: 0 6px 28px rgba(0,212,255,0.35);
-  transition: all 0.2s;
-  margin-bottom: calc(var(--safe-b) + 8px);
-}
-.btn-start:active { transform: scale(0.97); box-shadow: 0 2px 12px rgba(0,212,255,0.2); }
-
-/* ════════════════════════════════════
-   SCREEN 2 — STUDIO (RECORDING)
-════════════════════════════════════ */
-#screen-studio {
-  background: #000;
-  overflow: hidden;
+/* Three.js canvas */
+#three-cv {
+  position:absolute; inset:0; width:100%; height:100%;
+  pointer-events:none; z-index:2;
+  transform:translateZ(0); will-change:transform;
 }
 
-/* Full camera */
-#camera-video {
-  position: absolute; inset: 0;
-  width: 100%; height: 100%;
-  object-fit: cover;
-  background: #000;
+/* HUD guides */
+.hud {
+  position:absolute; inset:0; z-index:3; pointer-events:none;
+  transition:opacity .3s;
 }
+.corner { position:absolute; width:28px; height:28px; }
+.corner.tl { top:16px;left:16px; border-top:2px solid var(--cyan); border-left:2px solid var(--cyan); opacity:.55; }
+.corner.tr { top:16px;right:16px; border-top:2px solid var(--cyan); border-right:2px solid var(--cyan); opacity:.55; }
+.corner.bl { bottom:150px;left:16px; border-bottom:2px solid var(--cyan); border-left:2px solid var(--cyan); opacity:.55; }
+.corner.br { bottom:150px;right:16px; border-bottom:2px solid var(--cyan); border-right:2px solid var(--cyan); opacity:.55; }
 
-/* Three overlay */
-#three-canvas {
-  position: absolute; inset: 0;
-  width: 100%; height: 100%;
-  pointer-events: none; z-index: 2;
+.face-oval {
+  position:absolute; left:50%; top:9%;
+  transform:translateX(-50%);
+  width:100px; height:128px;
+  border:1px dashed rgba(255,255,255,.14);
+  border-radius:50% 50% 46% 46%;
 }
-
-/* HUD frame corners */
-.hud { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
-.corner {
-  position: absolute; width: 26px; height: 26px;
-}
-.corner.tl { top: 18px; left: 18px; border-top: 2px solid var(--cyan); border-left: 2px solid var(--cyan); }
-.corner.tr { top: 18px; right: 18px; border-top: 2px solid var(--cyan); border-right: 2px solid var(--cyan); }
-.corner.bl { bottom: 140px; left: 18px; border-bottom: 2px solid var(--cyan); border-left: 2px solid var(--cyan); }
-.corner.br { bottom: 140px; right: 18px; border-bottom: 2px solid var(--cyan); border-right: 2px solid var(--cyan); }
-
-/* Eye line */
 .eye-line {
-  position: absolute; left: 8%; right: 8%; top: 28%;
-  height: 1px; background: rgba(255,184,0,0.4);
-  z-index: 3; pointer-events: none;
+  position:absolute; left:6%; right:6%; top:28%;
+  height:1px; background:rgba(255,190,0,.3);
 }
-.eye-line-label {
-  position: absolute; right: calc(8% + 8px); top: calc(28% - 15px);
-  font-size: 8px; letter-spacing: 0.14em; font-weight: 700;
-  color: rgba(255,184,0,0.5); z-index: 3; pointer-events: none;
-  text-transform: uppercase;
+.eye-tag {
+  position:absolute; right:calc(6% + 8px); top:calc(28% - 15px);
+  font-family:var(--fmono); font-size:8px; letter-spacing:.14em;
+  color:rgba(255,190,0,.4); text-transform:uppercase;
 }
 
-/* Reading focus line */
-.read-line {
-  position: absolute; left: 6%; right: 6%; top: 37%;
-  height: 2px; z-index: 4; pointer-events: none;
-  background: linear-gradient(90deg, transparent, var(--cyan), transparent);
-  opacity: 0.55; border-radius: 1px;
-  box-shadow: 0 0 10px rgba(0,212,255,0.5);
+/* ── THE KEY ELEMENT: Focus zone ───────────────────
+   This is a fixed window in the middle of the screen.
+   The text scrolls behind it. The reader's eyes stay still.
+   Gradient above and below creates natural fade-in/out.
+─────────────────────────────────────────────────── */
+#focus-zone {
+  position:absolute; z-index:4; pointer-events:none;
+  left:0; right:0;
+  /* positioned by JS to sit at vertical center */
+  top:30%; height:22%;
+}
+/* Frosted contrast background — makes text readable over ANY camera scene */
+#focus-zone::before {
+  content:'';
+  position:absolute; inset:0;
+  background:rgba(0,0,0,.42);
+  backdrop-filter:blur(3px);
+  -webkit-backdrop-filter:blur(3px);
+  border-top:1px solid rgba(0,229,255,.12);
+  border-bottom:1px solid rgba(0,229,255,.12);
+}
+/* Top fade */
+#focus-zone::after {
+  content:'';
+  position:absolute; left:0; right:0; top:-60px; height:60px;
+  background:linear-gradient(to bottom, transparent, rgba(0,0,0,.42));
+  pointer-events:none;
+}
+.focus-fade-bottom {
+  position:absolute; left:0; right:0; bottom:-60px; height:60px;
+  background:linear-gradient(to top, transparent, rgba(0,0,0,.42));
+  z-index:1;
 }
 
-/* TELEPROMPTER TEXT */
-#tp-overlay {
-  position: absolute; inset: 0; z-index: 5;
-  pointer-events: none; overflow: hidden;
+/* ── TELEPROMPTER ─────────────────────────────── */
+#tp-wrap {
+  position:absolute; inset:0; z-index:5;
+  pointer-events:none; overflow:hidden;
+  transform:translateZ(0); will-change:contents;
 }
+
+/* Full screen gradient mask — content fades in/out */
 #tp-mask {
-  position: absolute; inset: 0; z-index: 1;
-  background: linear-gradient(
+  position:absolute; inset:0; z-index:3; pointer-events:none;
+  background:linear-gradient(
     to bottom,
-    rgba(0,0,0,0.75) 0%,
-    transparent 20%,
-    transparent 72%,
-    rgba(0,0,0,0.85) 100%
+    rgba(0,0,0,.88)  0%,
+    rgba(0,0,0,.55) 15%,
+    transparent      28%,
+    transparent      60%,
+    rgba(0,0,0,.55) 74%,
+    rgba(0,0,0,.9)  100%
   );
 }
+
+/* Text track — only translateY changes, GPU composited */
 #tp-track {
-  position: absolute; bottom: 0; left: 0; right: 0;
-  z-index: 2; padding: 0 22px;
+  position:absolute; bottom:0; left:0; right:0;
+  padding:0 5vw;
+  will-change:transform;
+  transform:translateZ(0) translateY(0);
+  z-index:2;
+  /* sub-pixel rendering */
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
 }
-#tp-text {
-  font-size: 26px; font-weight: 700; line-height: 1.55;
-  font-family: var(--font-b);
-  color: #fff; text-align: center;
-  padding-bottom: 58%;
-  text-shadow: 0 2px 16px rgba(0,0,0,0.95), 0 0 32px rgba(0,0,0,0.8);
+
+#tp-words {
+  font-family:var(--fread);
+  font-size:var(--tp-size);
+  font-weight:var(--tp-w);
+  line-height:var(--tp-lh);
+  letter-spacing:.01em;
+  text-align:center;
+  color:#fff;
+  padding-bottom:65%;
+  /* Layered shadow = maximum contrast on any background */
+  text-shadow:
+    0 0   2px rgba(0,0,0,1),
+    0 1px  0  rgba(0,0,0,1),
+    0 2px 12px rgba(0,0,0,.95),
+    0 4px 30px rgba(0,0,0,.9),
+    0 0  50px  rgba(0,0,0,.6);
+  /* Readability rendering */
+  text-rendering:optimizeLegibility;
 }
-#tp-text.mirror { transform: scaleX(-1); }
+#tp-words.mirror { transform:scaleX(-1); }
+
+/* Word highlight — current word in focus zone gets a highlight */
+#tp-words .word { display:inline; transition:color .1s, text-shadow .1s; }
+#tp-words .word.active {
+  color:var(--cyan);
+  text-shadow:
+    0 0 20px rgba(0,229,255,.8),
+    0 0 40px rgba(0,229,255,.4),
+    0 2px 12px rgba(0,0,0,.95);
+}
 
 /* REC badge */
 #rec-badge {
-  position: absolute; top: 22px; left: 22px; z-index: 10;
-  display: flex; align-items: center; gap: 7px;
-  background: rgba(0,0,0,0.55); backdrop-filter: blur(8px);
-  border: 1px solid rgba(255,59,59,0.35);
-  border-radius: 99px; padding: 6px 12px;
-  opacity: 0; transition: opacity 0.3s;
-  pointer-events: none;
+  position:absolute; top:var(--sat); left:0;
+  margin:16px 18px; z-index:10;
+  display:flex; align-items:center; gap:8px;
+  background:rgba(0,0,0,.62);
+  backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+  border:1px solid rgba(255,45,45,.28); border-radius:99px;
+  padding:7px 14px;
+  opacity:0; transition:opacity .3s; pointer-events:none;
 }
-#rec-badge.show { opacity: 1; }
-#rec-dot-live { width: 8px; height: 8px; border-radius: 50%; background: var(--red); animation: blink 1s infinite; }
-#rec-time-live { font-family: var(--font-h); font-size: 18px; letter-spacing: 0.06em; color: var(--white); }
+#rec-badge.show { opacity:1; }
+#rec-dot { width:9px; height:9px; border-radius:50%; background:var(--red); animation:pulse 1s infinite; }
+#rec-clock { font-family:var(--fmono); font-size:15px; font-weight:500; letter-spacing:.07em; }
 
-/* SPEED HUD */
-#speed-hud {
-  position: absolute; top: 22px; right: 22px; z-index: 10;
-  background: rgba(0,0,0,0.5); backdrop-filter: blur(8px);
-  border: 1px solid rgba(0,212,255,0.25); border-radius: 10px;
-  padding: 6px 11px; pointer-events: none;
-  font-family: var(--font-h); font-size: 20px; color: var(--cyan);
-  letter-spacing: 0.05em;
+/* Top-right HUD */
+#top-hud {
+  position:absolute; top:0; right:0;
+  margin:16px 18px; z-index:10;
+  display:flex; flex-direction:column; align-items:flex-end; gap:5px;
+  pointer-events:none;
 }
+.hud-tag {
+  font-family:var(--fmono); font-size:11px; font-weight:500;
+  background:rgba(0,0,0,.55); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+  border:1px solid rgba(255,255,255,.1); border-radius:8px;
+  padding:5px 10px; color:var(--mid);
+  display:flex; align-items:center; gap:6px;
+}
+.hud-tag b { color:var(--cyan); font-weight:700; }
 
-/* BOTTOM CONTROLS */
-#studio-controls {
-  position: absolute; bottom: 0; left: 0; right: 0;
-  z-index: 10;
-  padding: 16px 22px calc(var(--safe-b) + 18px);
-  background: linear-gradient(to top, rgba(0,0,0,0.92) 0%, transparent 100%);
-  display: flex; flex-direction: column; gap: 12px;
-}
-
-/* Prompter control bar */
-.prompt-bar {
-  display: flex; align-items: center; gap: 10px;
-}
-.speed-row {
-  display: flex; align-items: center; gap: 10px;
-}
-.speed-row span {
-  font-size: 10px; font-weight: 700; letter-spacing: 0.12em;
-  text-transform: uppercase; color: var(--muted); min-width: 46px;
-}
-.speed-row input[type=range] { flex: 1; }
-.speed-row .sv {
-  font-family: var(--font-h); font-size: 18px; color: var(--cyan);
-  min-width: 40px; text-align: right;
+/* ── BOTTOM PANEL ─────────────────────────────── */
+#panel {
+  position:absolute; bottom:0; left:0; right:0; z-index:10;
+  padding:8px 18px calc(var(--sab) + 16px);
+  background:linear-gradient(to top, rgba(0,0,0,.97) 0%, rgba(0,0,0,.85) 55%, transparent 100%);
+  display:flex; flex-direction:column; gap:8px;
 }
 
-/* Action buttons row */
-.action-row {
-  display: flex; align-items: center; justify-content: center; gap: 18px;
+.panel-slider {
+  display:flex; align-items:center; gap:10px;
 }
-.act-btn {
-  width: 52px; height: 52px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 20px;
-  background: rgba(255,255,255,0.08);
-  border: 1px solid rgba(255,255,255,0.15);
-  backdrop-filter: blur(6px);
-  transition: all 0.18s;
-}
-.act-btn:active { transform: scale(0.91); }
-.act-btn.primary {
-  width: 68px; height: 68px; font-size: 26px;
-  background: var(--red);
-  border-color: var(--red);
-  box-shadow: 0 0 22px rgba(255,59,59,0.5);
-}
-.act-btn.primary.recording {
-  animation: rec-glow 1.4s infinite;
-}
-@keyframes rec-glow {
-  0%,100%{ box-shadow: 0 0 22px rgba(255,59,59,0.5); }
-  50%{ box-shadow: 0 0 42px rgba(255,59,59,0.9); }
-}
-.act-btn.start-stop {
-  width: 60px; height: 60px;
-  background: rgba(0,212,255,0.15);
-  border-color: rgba(0,212,255,0.5);
-  font-size: 22px;
-}
-.act-btn.marker-btn {
-  background: rgba(255,184,0,0.12);
-  border-color: rgba(255,184,0,0.4);
-}
+.ps-lbl { font-family:var(--fmono); font-size:9px; letter-spacing:.16em; text-transform:uppercase; color:var(--dim); min-width:38px; }
+.ps-val { font-family:var(--fmono); font-size:12px; font-weight:700; color:var(--cyan); min-width:40px; text-align:right; }
 
-/* Prompt toggle */
-#btn-prompt-toggle {
-  flex: 1; padding: 12px;
-  background: rgba(0,212,255,0.12);
-  border: 1px solid rgba(0,212,255,0.3);
-  border-radius: 12px;
-  color: var(--cyan); font-size: 13px; font-weight: 800;
-  letter-spacing: 0.06em; text-transform: uppercase;
-  transition: all 0.18s;
-}
-#btn-prompt-toggle:active { transform: scale(0.97); }
-#btn-prompt-toggle.running {
-  background: rgba(0,212,255,0.2);
-  border-color: var(--cyan);
-}
+.prompt-row { display:flex; gap:8px; }
 .back-btn {
-  background: rgba(255,255,255,0.07);
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 12px; padding: 11px 16px;
-  color: var(--muted); font-size: 12px; font-weight: 700;
-  letter-spacing: 0.05em;
+  padding:13px 15px;
+  background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1);
+  border-radius:12px; color:var(--mid);
+  font-size:13px; font-weight:700; flex-shrink:0;
+  transition:all .15s;
 }
+.back-btn:active { background:rgba(255,255,255,.1); }
+#btn-tp {
+  flex:1; padding:13px;
+  background:rgba(0,229,255,.09); border:1px solid rgba(0,229,255,.25);
+  border-radius:12px; color:var(--cyan);
+  font-size:13px; font-weight:800; letter-spacing:.07em; text-transform:uppercase;
+  transition:all .18s;
+}
+#btn-tp.live { background:rgba(0,229,255,.18); border-color:rgba(0,229,255,.6); }
+#btn-tp:active { transform:scale(.98); }
 
-/* ════════════════════════════════════
-   SCREEN 3 — SAVE / DOWNLOAD
-════════════════════════════════════ */
-#screen-save {
-  background: var(--bg);
-  padding: 0;
-  justify-content: center; align-items: center;
+.action-row { display:flex; align-items:center; justify-content:center; gap:20px; }
+.act {
+  width:54px; height:54px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center; font-size:21px;
+  background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.12);
+  transition:transform .15s, box-shadow .15s; flex-shrink:0;
 }
-.save-box {
-  width: 100%; padding: 32px 24px;
-  display: flex; flex-direction: column; gap: 20px; align-items: center;
+.act:active { transform:scale(.89); }
+.act-rec {
+  width:70px; height:70px; font-size:27px;
+  background:var(--red); border-color:var(--red);
+  box-shadow:0 0 22px rgba(255,45,45,.4);
 }
-.save-icon { font-size: 56px; }
-.save-title { font-family: var(--font-h); font-size: 30px; letter-spacing: 0.08em; text-align: center; }
-.save-sub { color: var(--muted); font-size: 14px; font-weight: 600; text-align: center; line-height: 1.6; }
-.save-info {
-  width: 100%; background: var(--card); border: 1px solid var(--border);
-  border-radius: 14px; padding: 16px 18px;
-  display: flex; flex-direction: column; gap: 8px;
+.act-rec.live { animation:recpulse 1.4s ease-in-out infinite; }
+@keyframes recpulse {
+  0%,100% { box-shadow:0 0 22px rgba(255,45,45,.4); }
+  50%      { box-shadow:0 0 50px rgba(255,45,45,.9), 0 0 80px rgba(255,45,45,.25); }
 }
-.save-row { display: flex; justify-content: space-between; align-items: center; }
-.save-row-label { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
-.save-row-val { font-family: var(--font-h); font-size: 18px; color: var(--cyan); }
-.btn-download {
-  width: 100%; padding: 20px;
-  background: linear-gradient(135deg, #00d4ff, #0090cc);
-  border-radius: 16px; color: var(--bg);
-  font-size: 17px; font-weight: 800; letter-spacing: 0.1em;
-  text-transform: uppercase;
-  box-shadow: 0 6px 28px rgba(0,212,255,0.4);
-  transition: all 0.2s;
-  text-decoration: none; display: flex;
-  align-items: center; justify-content: center; gap: 10px;
+.act-mark { background:rgba(255,190,0,.1); border-color:rgba(255,190,0,.35); }
+
+
+/* ═══════════════════════════════════════════════
+   ③ SAVE SCREEN
+═══════════════════════════════════════════════ */
+#s-save {
+  background:var(--bg);
+  align-items:center; justify-content:center;
 }
-.btn-download:active { transform: scale(0.97); }
+.save-inner {
+  width:100%; max-width:420px; padding:0 22px calc(var(--sab) + 16px);
+  display:flex; flex-direction:column; gap:17px; align-items:center;
+}
+.save-emoji { font-size:60px; line-height:1; }
+.save-h { font-family:var(--fmega); font-size:28px; letter-spacing:.07em; text-align:center; }
+.save-sub { font-size:14px; color:var(--mid); text-align:center; line-height:1.65; font-weight:400; }
+
+.info-card {
+  width:100%; background:var(--s1); border:1px solid var(--brd2);
+  border-radius:16px; overflow:hidden;
+}
+.info-row {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:13px 17px; border-bottom:1px solid var(--brd);
+}
+.info-row:last-child { border:none; }
+.ir-l { font-family:var(--fmono); font-size:9px; letter-spacing:.16em; text-transform:uppercase; color:var(--dim); }
+.ir-v { font-family:var(--fmono); font-size:15px; font-weight:700; color:var(--white); }
+.ir-v.hi { color:var(--cyan); }
+
+.btn-dl {
+  width:100%; padding:19px;
+  background:linear-gradient(135deg, var(--cyan) 0%, var(--cyanD) 100%);
+  border-radius:16px; color:#05050e;
+  font-size:16px; font-weight:800; letter-spacing:.1em; text-transform:uppercase;
+  box-shadow:0 8px 32px rgba(0,229,255,.3);
+  text-decoration:none; display:flex; align-items:center; justify-content:center; gap:10px;
+  transition:all .18s;
+}
+.btn-dl:active { transform:scale(.97); }
 .btn-new {
-  width: 100%; padding: 16px;
-  background: transparent; border: 1px solid var(--border);
-  border-radius: 14px; color: var(--muted);
-  font-size: 14px; font-weight: 700;
-  transition: all 0.2s;
+  width:100%; padding:15px;
+  background:var(--s1); border:1px solid var(--brd2);
+  border-radius:13px; color:var(--mid);
+  font-size:14px; font-weight:600; transition:all .18s;
 }
-.btn-new:active { background: var(--card); }
+.btn-new:active { background:var(--s2); }
 
-/* ─── TOAST ─── */
+
+/* ═══════════════════════════════════════════════
+   TOAST
+═══════════════════════════════════════════════ */
 #toast {
-  position: fixed; bottom: calc(var(--safe-b) + 24px); left: 50%;
-  transform: translateX(-50%) translateY(20px);
-  background: var(--card2); border: 1px solid var(--border);
-  border-radius: 12px; padding: 11px 20px;
-  font-size: 13px; font-weight: 700; white-space: nowrap;
-  z-index: 999; opacity: 0; transition: all 0.3s;
-  pointer-events: none; max-width: 88vw;
+  position:fixed; z-index:999;
+  bottom:calc(var(--sab) + 26px); left:50%;
+  transform:translateX(-50%) translateY(14px);
+  background:var(--s2); border:1px solid var(--brd2);
+  border-radius:12px; padding:11px 20px;
+  font-family:var(--fmono); font-size:12px; font-weight:500;
+  white-space:nowrap; opacity:0;
+  transition:all .25s cubic-bezier(.4,0,.2,1);
+  pointer-events:none; max-width:88vw;
+  backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
 }
-#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-#toast.green { border-color: rgba(0,212,255,0.5); color: var(--cyan); }
-#toast.orange { border-color: rgba(255,184,0,0.5); color: var(--gold); }
-#toast.red { border-color: rgba(255,59,59,0.5); color: var(--red); }
+#toast.on { opacity:1; transform:translateX(-50%) translateY(0); }
+#toast.c { border-color:rgba(0,229,255,.4); color:var(--cyan); }
+#toast.g { border-color:rgba(0,230,118,.4); color:var(--green); }
+#toast.o { border-color:rgba(255,190,0,.4); color:var(--gold); }
+#toast.r { border-color:rgba(255,45,45,.4); color:var(--red); }
 
-/* scrollbar */
-::-webkit-scrollbar { width: 3px; }
-::-webkit-scrollbar-thumb { background: var(--card2); border-radius: 2px; }
+::-webkit-scrollbar { width:3px; }
+::-webkit-scrollbar-thumb { background:var(--s3); border-radius:2px; }
 </style>
 </head>
 <body>
 
-<!-- ═══════════════════════════════════
-     SCREEN 1 — SCRIPT SETUP
-═══════════════════════════════════ -->
-<div class="screen" id="screen-script">
-  <div class="top-bar">
-    <div class="logo-text"><span class="logo-dot"></span>PROMPTER <span>STUDIO</span></div>
-    <div style="font-size:11px;font-weight:700;letter-spacing:0.1em;color:var(--muted)">v2.0</div>
+<!-- ══════════════════════════════════════════
+     ① SETUP
+══════════════════════════════════════════ -->
+<div class="screen" id="s-setup">
+  <div class="app-bar">
+    <div class="app-logo">
+      <div class="live-dot"></div>
+      PROMPTER<span class="accent">STUDIO</span>
+    </div>
+    <div class="chip" id="qual-chip">1080p · 60fps</div>
   </div>
 
-  <div class="script-body">
+  <div class="setup-scroll">
 
-    <!-- Script -->
-    <div class="section-label">Seu Script</div>
-    <textarea id="script-input" placeholder="Digite ou cole seu roteiro aqui...
+    <div class="section-lbl">Seu Roteiro</div>
+    <div class="script-box">
+      <textarea id="script-input" rows="8"
+        placeholder="Digite ou cole seu roteiro aqui...
 
-Dica: Use [PAUSE] para marcar pausas e [SEÇÃO: Título] para dividir partes.
+Formatação especial:
+  [PAUSA]           → pausa visual na rolagem
+  [SEÇÃO: Título]   → separador de seção
 
-O teleprompter vai rolar automaticamente enquanto você grava."></textarea>
-
-    <!-- Speed + Font -->
-    <div class="controls-grid">
-      <div class="ctrl-card">
-        <div class="ctrl-card-label">Velocidade</div>
-        <div class="ctrl-card-val" id="v-speed">1.2×</div>
-        <input type="range" id="r-speed" min="0.3" max="5" step="0.1" value="1.2" oninput="setSpeed(this.value)">
-      </div>
-      <div class="ctrl-card">
-        <div class="ctrl-card-label">Fonte</div>
-        <div class="ctrl-card-val" id="v-font">26px</div>
-        <input type="range" id="r-font" min="16" max="52" step="1" value="26" oninput="setFont(this.value)">
+O teleprompter vai rolar no ritmo exato do seu WPM e destacar a palavra que você está lendo."></textarea>
+      <div class="script-meta">
+        <span id="word-count">0 palavras</span>
+        <span id="dur-est">~0:00 de leitura</span>
       </div>
     </div>
 
-    <!-- Toggles -->
-    <div class="section-label">Opções</div>
-    <div class="toggle-pills">
-      <button class="pill on" id="pill-overlay" onclick="togglePill(this,'overlay')">👁 Overlay</button>
-      <button class="pill" id="pill-mirror" onclick="togglePill(this,'mirror')">↔ Espelho</button>
-      <button class="pill on" id="pill-guides" onclick="togglePill(this,'guides')">🎯 Guias</button>
+    <!-- WPM speed -->
+    <div class="section-lbl">Velocidade de leitura</div>
+    <div class="ccard">
+      <div class="ccard-top">
+        <span class="ccard-lbl">Palavras por minuto</span>
+        <span class="ccard-val" id="wpm-val">130<small>wpm</small></span>
+      </div>
+      <input type="range" id="r-wpm" min="60" max="260" step="5" value="130"
+             oninput="onWpm(this.value)">
+      <div style="display:flex;justify-content:space-between;font-family:var(--fmono);font-size:8px;color:var(--dim);margin-top:1px">
+        <span>60 — devagar</span><span>160 — normal TV</span><span>260 — rápido</span>
+      </div>
+    </div>
+
+    <!-- Live estimate -->
+    <div class="est-card">
+      <div class="est-left">
+        <span class="est-lbl">Duração estimada</span>
+        <span class="est-num" id="dur-num">0:00</span>
+        <span class="est-lbl" style="margin-top:2px">no ritmo atual</span>
+      </div>
+      <div class="est-right">
+        <span class="est-wpm" id="px-disp">—</span>
+        <span class="est-sub">px/seg</span>
+      </div>
+    </div>
+
+    <!-- Font + Line height -->
+    <div class="two-col">
+      <div class="ccard">
+        <div class="ccard-top">
+          <span class="ccard-lbl">Tamanho fonte</span>
+          <span class="ccard-val" id="font-val">7<small>vw</small></span>
+        </div>
+        <input type="range" id="r-font" min="4" max="12" step="0.5" value="7"
+               oninput="onFont(this.value)">
+      </div>
+      <div class="ccard">
+        <div class="ccard-top">
+          <span class="ccard-lbl">Espaçamento</span>
+          <span class="ccard-val" id="lh-val">1.75<small>×</small></span>
+        </div>
+        <input type="range" id="r-lh" min="1.3" max="2.3" step="0.05" value="1.75"
+               oninput="onLh(this.value)">
+      </div>
+    </div>
+
+    <!-- Highlight mode -->
+    <div class="section-lbl">Destaque de palavra</div>
+    <div class="hm-row">
+      <div class="hm-opt sel" data-hm="word" onclick="setHm(this)">
+        <span class="hm-icon">✨</span>Palavra
+      </div>
+      <div class="hm-opt" data-hm="line" onclick="setHm(this)">
+        <span class="hm-icon">📍</span>Linha
+      </div>
+      <div class="hm-opt" data-hm="off" onclick="setHm(this)">
+        <span class="hm-icon">🚫</span>Nenhum
+      </div>
+    </div>
+
+    <!-- Font weight -->
+    <div class="section-lbl">Peso da fonte</div>
+    <div class="hm-row">
+      <div class="hm-opt" data-fw="400" onclick="setFw(this)"><span class="hm-icon" style="font-weight:400">Aa</span>Regular</div>
+      <div class="hm-opt sel" data-fw="700" onclick="setFw(this)"><span class="hm-icon" style="font-weight:700">Aa</span>Bold</div>
+      <div class="hm-opt" data-fw="900" onclick="setFw(this)"><span class="hm-icon" style="font-weight:900">Aa</span>Black</div>
+    </div>
+
+    <!-- Quality -->
+    <div class="section-lbl">Qualidade de vídeo</div>
+    <div class="qual-row">
+      <div class="qpill" onclick="setQual(this,1280,720,30,4e6,'720p·30')">
+        <div class="qpill-res">720p</div><div class="qpill-fps">30fps · 4Mbps</div>
+      </div>
+      <div class="qpill sel" onclick="setQual(this,1920,1080,60,12e6,'1080p·60')">
+        <div class="qpill-res">1080p</div><div class="qpill-fps">60fps · 12Mbps</div>
+      </div>
+      <div class="qpill" onclick="setQual(this,3840,2160,30,28e6,'4K·30')">
+        <div class="qpill-res">4K</div><div class="qpill-fps">30fps · 28Mbps</div>
+      </div>
+    </div>
+
+    <!-- Options -->
+    <div class="section-lbl">Opções</div>
+    <div class="pills">
+      <button class="pill on" id="p-overlay" onclick="tog(this,'overlay')">👁 Overlay</button>
+      <button class="pill"    id="p-mirror"  onclick="tog(this,'mirror')">↔ Espelho</button>
+      <button class="pill on" id="p-guides"  onclick="tog(this,'guides')">🎯 Guias</button>
     </div>
 
     <!-- Camera -->
-    <div class="section-label">Câmera</div>
-    <select class="cam-select" id="cam-select" onchange="onCamChange()">
-      <option value="">Câmera frontal (padrão)</option>
-    </select>
+    <div class="section-lbl">Câmera</div>
+    <div class="sel-wrap">
+      <span class="icon">📷</span>
+      <select class="cam-sel" id="cam-sel"></select>
+    </div>
 
-    <!-- Start -->
-    <button class="btn-start" id="btn-go" onclick="goToStudio()">🎬 INICIAR GRAVAÇÃO</button>
+    <button class="btn-cta" id="btn-go" onclick="launch()">🎬 INICIAR GRAVAÇÃO</button>
 
   </div>
 </div>
 
-<!-- ═══════════════════════════════════
-     SCREEN 2 — STUDIO
-═══════════════════════════════════ -->
-<div class="screen hidden" id="screen-studio">
 
-  <!-- Camera full screen -->
-  <video id="camera-video" autoplay muted playsinline webkit-playsinline></video>
+<!-- ══════════════════════════════════════════
+     ② STUDIO
+══════════════════════════════════════════ -->
+<div class="screen off" id="s-studio">
 
-  <!-- Three.js overlay -->
-  <canvas id="three-canvas"></canvas>
+  <video id="cam-video" autoplay muted playsinline webkit-playsinline></video>
+  <canvas id="three-cv"></canvas>
 
-  <!-- HUD -->
-  <div class="hud" id="hud-el">
-    <div class="corner tl"></div>
-    <div class="corner tr"></div>
-    <div class="corner bl"></div>
-    <div class="corner br"></div>
-    <div class="eye-line" id="eye-line-el"></div>
-    <div class="eye-line-label" id="eye-label-el">EYE LINE</div>
-    <div class="read-line" id="read-line-el"></div>
+  <!-- HUD guides -->
+  <div class="hud" id="hud">
+    <div class="corner tl"></div><div class="corner tr"></div>
+    <div class="corner bl"></div><div class="corner br"></div>
+    <div class="face-oval" id="face-oval"></div>
+    <div class="eye-line"  id="eye-line"></div>
+    <div class="eye-tag"   id="eye-tag">Linha dos olhos</div>
   </div>
+
+  <!-- Focus zone -->
+  <div id="focus-zone"><div class="focus-fade-bottom"></div></div>
 
   <!-- REC badge -->
-  <div id="rec-badge">
-    <div id="rec-dot-live"></div>
-    <span id="rec-time-live">00:00</span>
-  </div>
+  <div id="rec-badge"><div id="rec-dot"></div><span id="rec-clock">00:00</span></div>
 
-  <!-- Speed HUD -->
-  <div id="speed-hud" id="speed-hud-el">1.2×</div>
+  <!-- Top HUD -->
+  <div id="top-hud">
+    <div class="hud-tag"><b id="h-qual">1080p</b>&thinsp;60fps</div>
+    <div class="hud-tag"><b id="h-wpm">130</b>&thinsp;wpm</div>
+  </div>
 
   <!-- Teleprompter -->
-  <div id="tp-overlay" style="display:none">
+  <div id="tp-wrap">
     <div id="tp-mask"></div>
-    <div id="tp-track"><div id="tp-text"></div></div>
+    <div id="tp-track"><div id="tp-words"></div></div>
   </div>
 
-  <!-- Bottom Controls -->
-  <div id="studio-controls">
-
-    <!-- Speed slider (compact) -->
-    <div class="speed-row">
-      <span>Speed</span>
-      <input type="range" id="r-speed2" min="0.3" max="5" step="0.1" value="1.2" oninput="setSpeed(this.value); document.getElementById('r-speed').value=this.value">
-      <span class="sv" id="v-speed2">1.2×</span>
+  <!-- Controls -->
+  <div id="panel">
+    <div class="panel-slider">
+      <span class="ps-lbl">WPM</span>
+      <input type="range" id="r-wpm2" min="60" max="260" step="5" value="130"
+             oninput="onWpm(this.value)" style="flex:1">
+      <span class="ps-val" id="wpm-live">130</span>
     </div>
-
-    <!-- Prompter toggle -->
-    <div class="prompt-bar">
-      <button class="back-btn" onclick="goBack()">← Voltar</button>
-      <button id="btn-prompt-toggle" onclick="togglePrompter()">▶ Iniciar Leitura</button>
+    <div class="panel-slider">
+      <span class="ps-lbl">Fonte</span>
+      <input type="range" id="r-font2" min="4" max="12" step="0.5" value="7"
+             oninput="onFont(this.value)" style="flex:1">
+      <span class="ps-val" id="font-live">7vw</span>
     </div>
-
-    <!-- Main actions -->
+    <div class="prompt-row">
+      <button class="back-btn" onclick="leave()">← Sair</button>
+      <button id="btn-tp" onclick="togPrompt()">▶ Iniciar Leitura</button>
+    </div>
     <div class="action-row">
-      <button class="act-btn marker-btn" onclick="addMarker()" title="Marcador">🚩</button>
-      <button class="act-btn primary" id="btn-rec" onclick="toggleRecord()">⏺</button>
-      <button class="act-btn" onclick="flipCam()" title="Virar câmera">🔄</button>
+      <button class="act act-mark" onclick="addMarker()">🚩</button>
+      <button class="act act-rec" id="btn-rec" onclick="togRec()">⏺</button>
+      <button class="act" onclick="flipCam()">🔄</button>
     </div>
+  </div>
 
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     ③ SAVE
+══════════════════════════════════════════ -->
+<div class="screen off" id="s-save">
+  <div class="save-inner">
+    <div class="save-emoji">🎉</div>
+    <div class="save-h">Gravação Pronta!</div>
+    <div class="save-sub">Toque em Baixar Vídeo para salvar diretamente na galeria ou no armazenamento do celular.</div>
+    <div class="info-card">
+      <div class="info-row"><span class="ir-l">Duração</span>    <span class="ir-v hi" id="sv-dur">—</span></div>
+      <div class="info-row"><span class="ir-l">Tamanho</span>    <span class="ir-v hi" id="sv-size">—</span></div>
+      <div class="info-row"><span class="ir-l">Qualidade</span>  <span class="ir-v"    id="sv-qual">—</span></div>
+      <div class="info-row"><span class="ir-l">Marcadores</span> <span class="ir-v"    id="sv-marks">0</span></div>
+      <div class="info-row"><span class="ir-l">Formato</span>    <span class="ir-v"    id="sv-fmt">—</span></div>
+    </div>
+    <a id="dl-link" class="btn-dl" download="gravacao.webm">⬇ BAIXAR VÍDEO</a>
+    <button class="btn-new" onclick="resetAll()">+ Nova Gravação</button>
   </div>
 </div>
 
-<!-- ═══════════════════════════════════
-     SCREEN 3 — SAVE
-═══════════════════════════════════ -->
-<div class="screen hidden" id="screen-save">
-  <div class="save-box">
-    <div class="save-icon">🎉</div>
-    <div class="save-title">GRAVAÇÃO SALVA!</div>
-    <div class="save-sub">Seu vídeo está pronto. Toque em baixar para salvar na galeria ou no armazenamento do celular.</div>
-
-    <div class="save-info">
-      <div class="save-row">
-        <span class="save-row-label">Duração</span>
-        <span class="save-row-val" id="save-dur">—</span>
-      </div>
-      <div class="save-row">
-        <span class="save-row-label">Tamanho</span>
-        <span class="save-row-val" id="save-size">—</span>
-      </div>
-      <div class="save-row">
-        <span class="save-row-label">Marcadores</span>
-        <span class="save-row-val" id="save-marks">0</span>
-      </div>
-      <div class="save-row">
-        <span class="save-row-label">Formato</span>
-        <span class="save-row-val">MP4 / WebM</span>
-      </div>
-    </div>
-
-    <a id="download-link" class="btn-download" download="gravacao.webm">
-      ⬇ BAIXAR VÍDEO
-    </a>
-
-    <button class="btn-new" onclick="newRecording()">+ Nova Gravação</button>
-  </div>
-</div>
-
-<!-- Toast -->
 <div id="toast"></div>
 
-<!-- Three.js CDN -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-// ══════════════════════════════════════════════
-// STATE
-// ══════════════════════════════════════════════
-const ST = {
-  speed: 1.2,
-  fontSize: 26,
-  overlay: true,
-  mirror: false,
-  guides: true,
-  stream: null,
-  facingMode: 'user',
-  selectedDeviceId: null,
-  isRecording: false,
-  mediaRecorder: null,
-  chunks: [],
-  totalBytes: 0,
-  recStart: null,
-  timerID: null,
-  prompterOn: false,
-  scrollY: 0,
-  promptRAF: null,
-  lastTS: null,
-  markers: [],
-  recDuration: 0,
+/* ═══════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════ */
+const G = {
+  wpm:130, fontVw:7, lineH:1.75, fontW:700,
+  hmMode:'word',       // 'word' | 'line' | 'off'
+  overlay:true, mirror:false, guides:true,
+  // quality
+  vidW:1920, vidH:1080, fps:60, bitrate:12e6, qualLabel:'1080p·60',
+  // camera
+  stream:null, facingMode:'user', selDevice:null,
+  // scroll physics
+  scrollY:0, targetY:0, pxPerSec:0,
+  promptOn:false, promptRAF:null, lastTS:null,
+  // word highlight
+  words:[], wordTops:[], activeWordIdx:-1,
+  focusTop:0, focusH:0,             // absolute px of focus zone
+  // recording
+  isRec:false, mediaRec:null, chunks:[], totalBytes:0,
+  recStart:null, timerID:null, recDur:0, markers:[],
   // three
-  threeRenderer: null, threeScene: null, threeCamera: null,
-  gridMesh: null, frameMesh: null, threeOn: true,
+  threeReady:false,
 };
 
-// ══════════════════════════════════════════════
-// SCREEN NAVIGATION
-// ══════════════════════════════════════════════
-function show(id) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
-  document.getElementById(id).classList.remove('hidden');
+/* ═══════════════════════════════════════════════════
+   SCREEN
+═══════════════════════════════════════════════════ */
+function show(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.add('off')); document.getElementById(id).classList.remove('off'); }
+
+/* ═══════════════════════════════════════════════════
+   TOAST
+═══════════════════════════════════════════════════ */
+let _tt;
+function toast(msg,cls='c'){ const t=document.getElementById('toast'); t.textContent=msg; t.className='on '+cls; clearTimeout(_tt); _tt=setTimeout(()=>t.className='',2600); }
+
+/* ═══════════════════════════════════════════════════
+   SCROLL PHYSICS
+   pxPerSec is derived from real typography metrics:
+   chars per line → words per line → lines per second
+═══════════════════════════════════════════════════ */
+function calcPxPerSec(){
+  const vw = window.innerWidth;
+  const fsz = G.fontVw / 100 * vw;   // font-size in px
+  // Lexend average char width ≈ 0.58 × font-size
+  const charW = fsz * 0.58;
+  const contentW = vw * 0.9;          // 5vw padding each side
+  const charsPerLine = Math.max(1, contentW / charW);
+  const wordsPerLine = charsPerLine / 5.8;  // avg Portuguese word ≈ 4.8 chars + space
+  const lineH = fsz * G.lineH;
+  // lines per second = (wpm/60) / wordsPerLine
+  const lps = (G.wpm / 60) / Math.max(1, wordsPerLine);
+  G.pxPerSec = lps * lineH;
+  // update display
+  document.getElementById('px-disp').textContent = G.pxPerSec.toFixed(1);
 }
 
-// ══════════════════════════════════════════════
-// TOAST
-// ══════════════════════════════════════════════
-let toastTimer;
-function toast(msg, type='green') {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.className = 'show ' + type;
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+/* ═══════════════════════════════════════════════════
+   SETUP CONTROLS
+═══════════════════════════════════════════════════ */
+function onWpm(v){
+  G.wpm=parseInt(v);
+  ['r-wpm','r-wpm2'].forEach(id=>document.getElementById(id).value=G.wpm);
+  document.getElementById('wpm-val').textContent  = G.wpm;
+  document.getElementById('wpm-live').textContent = G.wpm;
+  document.getElementById('h-wpm').textContent    = G.wpm;
+  calcPxPerSec(); updateEstimate();
 }
 
-// ══════════════════════════════════════════════
-// CONTROLS (shared between screens)
-// ══════════════════════════════════════════════
-function setSpeed(v) {
-  ST.speed = parseFloat(v);
-  const txt = ST.speed.toFixed(1) + '×';
-  document.getElementById('v-speed').textContent = txt;
-  document.getElementById('v-speed2').textContent = txt;
-  document.getElementById('speed-hud').textContent = txt;
-  // sync both sliders
-  document.getElementById('r-speed').value = v;
-  document.getElementById('r-speed2').value = v;
+function onFont(v){
+  G.fontVw=parseFloat(v);
+  ['r-font','r-font2'].forEach(id=>document.getElementById(id).value=G.fontVw);
+  document.getElementById('font-val').textContent  = G.fontVw;
+  document.getElementById('font-live').textContent = G.fontVw+'vw';
+  document.documentElement.style.setProperty('--tp-size', G.fontVw+'vw');
+  calcPxPerSec(); scheduleWordLayout();
 }
 
-function setFont(v) {
-  ST.fontSize = parseInt(v);
-  document.getElementById('v-font').textContent = ST.fontSize + 'px';
-  document.getElementById('tp-text').style.fontSize = ST.fontSize + 'px';
+function onLh(v){
+  G.lineH=parseFloat(v);
+  document.getElementById('lh-val').textContent=G.lineH.toFixed(2);
+  document.documentElement.style.setProperty('--tp-lh', G.lineH);
+  calcPxPerSec(); scheduleWordLayout();
 }
 
-function togglePill(el, key) {
-  ST[key] = !ST[key];
-  el.classList.toggle('on', ST[key]);
-  applySettings();
+function setHm(el){ document.querySelectorAll('.hm-opt[data-hm]').forEach(o=>o.classList.remove('sel')); el.classList.add('sel'); G.hmMode=el.dataset.hm; }
+function setFw(el){
+  document.querySelectorAll('.hm-opt[data-fw]').forEach(o=>o.classList.remove('sel'));
+  el.classList.add('sel'); G.fontW=parseInt(el.dataset.fw);
+  document.documentElement.style.setProperty('--tp-w', G.fontW);
+}
+function setQual(el,w,h,fps,br,lbl){
+  document.querySelectorAll('.qpill').forEach(o=>o.classList.remove('sel')); el.classList.add('sel');
+  G.vidW=w; G.vidH=h; G.fps=fps; G.bitrate=br; G.qualLabel=lbl;
+  const short = w>=3840?'4K':h+'p';
+  document.getElementById('qual-chip').textContent = short+' · '+fps+'fps';
+  document.getElementById('h-qual').textContent = short;
+}
+function tog(el,key){ G[key]=!G[key]; el.classList.toggle('on',G[key]); applySettings(); }
+function applySettings(){
+  document.getElementById('tp-words').classList.toggle('mirror',G.mirror);
+  document.getElementById('cam-video').style.transform=G.mirror?'scaleX(-1)':'';
+  document.getElementById('tp-wrap').style.opacity=G.overlay?'1':'0';
+  const op=G.guides?'1':'0';
+  ['hud','focus-zone'].forEach(id=>{ const e=document.getElementById(id); if(e) e.style.opacity=op; });
 }
 
-function applySettings() {
-  // Mirror
-  document.getElementById('tp-text').classList.toggle('mirror', ST.mirror);
-  document.getElementById('camera-video').style.transform = ST.mirror ? 'scaleX(-1)' : '';
-  // Overlay visibility
-  document.getElementById('tp-overlay').style.display = ST.overlay ? 'block' : 'none';
-  // Guides
-  const g = ST.guides;
-  const opacity = g ? '1' : '0';
-  ['eye-line-el','eye-label-el','read-line-el'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.style.opacity = opacity;
-  });
+function updateEstimate(){
+  const txt=document.getElementById('script-input').value||'';
+  const words=txt.trim().split(/\s+/).filter(Boolean).length;
+  document.getElementById('word-count').textContent=words+' palavras';
+  const secs=Math.round((words/Math.max(1,G.wpm))*60);
+  const fmt=s=>`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+  document.getElementById('dur-num').textContent=fmt(secs);
+  document.getElementById('dur-est').textContent='~'+fmt(secs)+' de leitura';
 }
 
-// ══════════════════════════════════════════════
-// CAMERA INIT
-// ══════════════════════════════════════════════
-async function initCamera(deviceId) {
-  try {
-    if (ST.stream) ST.stream.getTracks().forEach(t => t.stop());
-    const constraints = {
-      video: deviceId
-        ? { deviceId: { exact: deviceId }, width: { ideal: 1920 }, height: { ideal: 1080 } }
-        : { facingMode: ST.facingMode, width: { ideal: 1920 }, height: { ideal: 1080 } },
-      audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 48000 }
-    };
-    ST.stream = await navigator.mediaDevices.getUserMedia(constraints);
-    document.getElementById('camera-video').srcObject = ST.stream;
-    return true;
-  } catch(e) {
-    toast('Câmera: ' + e.message, 'red');
-    return false;
-  }
-}
-
-async function populateCams() {
-  try {
-    const devs = await navigator.mediaDevices.enumerateDevices();
-    const sel = document.getElementById('cam-select');
-    sel.innerHTML = '';
-    const vids = devs.filter(d => d.kind === 'videoinput');
-    if (!vids.length) { sel.innerHTML = '<option>Nenhuma câmera encontrada</option>'; return; }
-    vids.forEach((d, i) => {
-      const o = document.createElement('option');
-      o.value = d.deviceId;
-      o.textContent = d.label || (i === 0 ? 'Câmera Frontal' : 'Câmera Traseira');
-      sel.appendChild(o);
+/* ═══════════════════════════════════════════════════
+   CAMERA
+═══════════════════════════════════════════════════ */
+async function initCam(deviceId){
+  try{
+    if(G.stream) G.stream.getTracks().forEach(t=>t.stop());
+    const vc = deviceId
+      ? {deviceId:{exact:deviceId},width:{ideal:G.vidW},height:{ideal:G.vidH},frameRate:{ideal:G.fps}}
+      : {facingMode:G.facingMode,width:{ideal:G.vidW},height:{ideal:G.vidH},frameRate:{ideal:G.fps}};
+    G.stream=await navigator.mediaDevices.getUserMedia({
+      video:vc,
+      audio:{echoCancellation:true,noiseSuppression:true,sampleRate:48000,channelCount:2}
     });
-  } catch(e) {}
+    document.getElementById('cam-video').srcObject=G.stream;
+    return true;
+  }catch(e){ toast('Câmera: '+e.message,'r'); return false; }
 }
-
-async function onCamChange() {
-  const sel = document.getElementById('cam-select');
-  ST.selectedDeviceId = sel.value;
+async function populateCams(){
+  try{
+    const devs=await navigator.mediaDevices.enumerateDevices();
+    const sel=document.getElementById('cam-sel'); sel.innerHTML='';
+    const vids=devs.filter(d=>d.kind==='videoinput');
+    if(!vids.length){sel.innerHTML='<option>Nenhuma câmera</option>';return;}
+    vids.forEach((d,i)=>{ const o=document.createElement('option'); o.value=d.deviceId; o.textContent=d.label||(i===0?'Câmera Frontal':'Câmera '+(i+1)); sel.appendChild(o); });
+  }catch(e){}
 }
+async function flipCam(){ G.facingMode=G.facingMode==='user'?'environment':'user'; G.selDevice=null; await initCam(null); toast('Câmera virada 🔄'); }
 
-async function flipCam() {
-  ST.facingMode = ST.facingMode === 'user' ? 'environment' : 'user';
-  ST.selectedDeviceId = null;
-  await initCamera(null);
-  toast('Câmera virada 🔄');
-}
-
-// ══════════════════════════════════════════════
-// GO TO STUDIO
-// ══════════════════════════════════════════════
-async function goToStudio() {
-  document.getElementById('btn-go').textContent = 'Carregando câmera...';
-  document.getElementById('btn-go').disabled = true;
-
-  const ok = await initCamera(ST.selectedDeviceId || null);
-  if (!ok) {
-    document.getElementById('btn-go').textContent = '🎬 INICIAR GRAVAÇÃO';
-    document.getElementById('btn-go').disabled = false;
-    return;
-  }
-  await populateCams();
-
-  // Build script text
+/* ═══════════════════════════════════════════════════
+   LAUNCH
+═══════════════════════════════════════════════════ */
+async function launch(){
+  const btn=document.getElementById('btn-go');
+  btn.textContent='Carregando câmera…'; btn.disabled=true;
+  const dev=document.getElementById('cam-sel').value||null;
+  G.selDevice=dev;
+  const ok=await initCam(dev);
+  btn.textContent='🎬 INICIAR GRAVAÇÃO'; btn.disabled=false;
+  if(!ok)return;
   buildScript();
   applySettings();
-  setFont(ST.fontSize);
-  show('screen-studio');
-  initThree();
-
-  document.getElementById('btn-go').textContent = '🎬 INICIAR GRAVAÇÃO';
-  document.getElementById('btn-go').disabled = false;
+  calcPxPerSec();
+  show('s-studio');
+  // layout after screen visible
+  requestAnimationFrame(()=>{ measureFocusZone(); scheduleWordLayout(); });
+  if(!G.threeReady){ initThree(); G.threeReady=true; }
 }
 
-function goBack() {
-  stopPrompter();
-  if (ST.isRecording) stopRecording();
-  if (ST.stream) ST.stream.getTracks().forEach(t => t.stop());
-  ST.stream = null;
-  show('screen-script');
+function leave(){
+  stopPrompt(); if(G.isRec) stopRec();
+  if(G.stream){G.stream.getTracks().forEach(t=>t.stop());G.stream=null;}
+  show('s-setup');
 }
 
-// ══════════════════════════════════════════════
-// THREE.JS — Cinematic Overlay
-// ══════════════════════════════════════════════
-function initThree() {
-  const canvas = document.getElementById('three-canvas');
-  const W = window.innerWidth, H = window.innerHeight;
+/* ═══════════════════════════════════════════════════
+   THREE.JS
+═══════════════════════════════════════════════════ */
+function initThree(){
+  const cv=document.getElementById('three-cv');
+  const R=new THREE.WebGLRenderer({canvas:cv,alpha:true,antialias:true});
+  R.setPixelRatio(Math.min(devicePixelRatio,2));
+  R.setSize(innerWidth,innerHeight); R.setClearColor(0,0);
+  const sc=new THREE.Scene();
+  const cam=new THREE.OrthographicCamera(-1,1,1,-1,0.1,10);
+  cam.position.z=1;
+  // subtle grid
+  const gm=new THREE.Mesh(new THREE.PlaneGeometry(2,2,10,16),new THREE.MeshBasicMaterial({color:0x00e5ff,wireframe:true,transparent:true,opacity:.038}));
+  sc.add(gm);
+  // cinematic corner frame
+  const s=.93,c=.1, verts=new Float32Array([-s,-s,0,-s+c,-s,0,-s,-s,0,-s,-s+c,0, s,-s,0,s-c,-s,0,s,-s,0,s,-s+c,0,-s,s,0,-s+c,s,0,-s,s,0,-s,s-c,0,s,s,0,s-c,s,0,s,s,0,s,s-c,0]);
+  const fg=new THREE.BufferGeometry(); fg.setAttribute('position',new THREE.BufferAttribute(verts,3));
+  const fm=new THREE.LineSegments(fg,new THREE.LineBasicMaterial({color:0x00e5ff,transparent:true,opacity:.42}));
+  sc.add(fm);
+  let t=0;
+  (function loop(){ requestAnimationFrame(loop); t+=.016; gm.material.opacity=.025+Math.sin(t)*.012; fm.material.opacity=.28+Math.sin(t*.7)*.13; R.render(sc,cam); })();
+  window.addEventListener('resize',()=>R.setSize(innerWidth,innerHeight));
+}
 
-  if (ST.threeRenderer) {
-    ST.threeRenderer.setSize(W, H);
-    return;
-  }
+/* ═══════════════════════════════════════════════════
+   TELEPROMPTER — MAX QUALITY
 
-  ST.threeRenderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
-  ST.threeRenderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-  ST.threeRenderer.setSize(W, H);
-  ST.threeRenderer.setClearColor(0, 0);
+   The text is split into individual <span> words.
+   We measure their Y position after render.
+   Each frame, we find which word is inside the
+   focus zone and highlight it — giving real-time
+   word tracking at 60fps with zero layout thrash
+   (measurements are cached, only updated on resize).
+═══════════════════════════════════════════════════ */
+function buildScript(){
+  const raw=document.getElementById('script-input').value||'Adicione seu roteiro na tela de configuração.';
+  // Wrap each word in a span for tracking
+  const processed = raw
+    .replace(/\[SEÇÃO:\s*([^\]]+)\]/gi,'\n§§$1§§\n')
+    .replace(/\[PAUSA\]/gi,'\n⏸⏸\n');
 
-  ST.threeScene = new THREE.Scene();
-  ST.threeCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
-  ST.threeCamera.position.z = 1;
+  const el=document.getElementById('tp-words');
+  el.innerHTML='';
 
-  // Grid
-  ST.gridMesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(2, 2, 10, 16),
-    new THREE.MeshBasicMaterial({ color: 0x00d4ff, wireframe: true, transparent: true, opacity: 0.055 })
-  );
-  ST.threeScene.add(ST.gridMesh);
+  const lines=processed.split('\n');
+  lines.forEach((line,li)=>{
+    if(line.startsWith('§§')&&line.endsWith('§§')){
+      const div=document.createElement('div');
+      div.style.cssText='color:#ffbe00;font-size:13px;letter-spacing:.2em;text-transform:uppercase;margin:24px 0 10px;font-weight:800;opacity:.75;font-family:var(--fmono)';
+      div.textContent='▸ '+line.slice(2,-2);
+      el.appendChild(div);
+    } else if(line.includes('⏸⏸')){
+      const div=document.createElement('div');
+      div.style.cssText='color:#00e5ff;font-size:14px;margin:18px 0;opacity:.6;font-family:var(--fmono);letter-spacing:.14em';
+      div.textContent='⏸  P A U S A';
+      el.appendChild(div);
+    } else {
+      const words=line.split(/(\s+)/);
+      words.forEach(w=>{
+        if(/^\s+$/.test(w)||w===''){
+          if(w.includes('\n')||li<lines.length-1) el.appendChild(document.createElement('br'));
+          else el.insertAdjacentText('beforeend',' ');
+        } else {
+          const span=document.createElement('span');
+          span.className='word'; span.textContent=w;
+          el.appendChild(span);
+          el.insertAdjacentText('beforeend',' ');
+        }
+      });
+      if(li<lines.length-1) el.appendChild(document.createElement('br'));
+    }
+  });
 
-  // Cinematic corners
-  const s = 0.93, c = 0.1;
-  const v = new Float32Array([
-    -s,-s,0, -s+c,-s,0,  -s,-s,0, -s,-s+c,0,
-     s,-s,0,  s-c,-s,0,   s,-s,0,  s,-s+c,0,
-    -s, s,0, -s+c, s,0,  -s, s,0, -s, s-c,0,
-     s, s,0,  s-c, s,0,   s, s,0,  s, s-c,0,
-  ]);
-  const fGeo = new THREE.BufferGeometry();
-  fGeo.setAttribute('position', new THREE.BufferAttribute(v, 3));
-  ST.frameMesh = new THREE.LineSegments(fGeo,
-    new THREE.LineBasicMaterial({ color: 0x00d4ff, transparent: true, opacity: 0.5 })
-  );
-  ST.threeScene.add(ST.frameMesh);
+  G.scrollY=0; G.targetY=0; G.activeWordIdx=-1;
+  document.getElementById('tp-track').style.transform='translateZ(0) translateY(0)';
+  scheduleWordLayout();
+}
 
-  let ft = 0;
-  (function loop() {
-    requestAnimationFrame(loop);
-    ft += 0.018;
-    if (ST.gridMesh) ST.gridMesh.material.opacity = 0.04 + Math.sin(ft) * 0.015;
-    if (ST.frameMesh) ST.frameMesh.material.opacity = 0.38 + Math.sin(ft * 0.6) * 0.15;
-    ST.threeRenderer.render(ST.threeScene, ST.threeCamera);
-  })();
+let _wlRAF=null;
+function scheduleWordLayout(){ if(_wlRAF) cancelAnimationFrame(_wlRAF); _wlRAF=requestAnimationFrame(measureWordPositions); }
 
-  window.addEventListener('resize', () => {
-    ST.threeRenderer.setSize(window.innerWidth, window.innerHeight);
+function measureWordPositions(){
+  const track=document.getElementById('tp-track');
+  const trackRect=track.getBoundingClientRect();
+  const spans=document.querySelectorAll('#tp-words .word');
+  G.words=Array.from(spans);
+  G.wordTops=G.words.map(sp=>{
+    const r=sp.getBoundingClientRect();
+    // position relative to track top, accounting for current scroll
+    return (r.top - trackRect.top) + G.scrollY;
   });
 }
 
-// ══════════════════════════════════════════════
-// TELEPROMPTER ENGINE
-// ══════════════════════════════════════════════
-function buildScript() {
-  const raw = document.getElementById('script-input').value || 'Adicione seu roteiro na tela anterior.';
-  document.getElementById('tp-text').innerHTML = raw
-    .replace(/\[SEÇÃO:\s*([^\]]+)\]/g, '<div style="color:#ffb800;font-size:14px;letter-spacing:0.18em;text-transform:uppercase;margin:20px 0 8px;font-weight:800;opacity:0.8">▸ $1</div>')
-    .replace(/\[PAUSE\]/g, '<div style="color:#00d4ff;font-size:16px;margin:16px 0;opacity:0.7">⏸ PAUSA</div>')
-    .replace(/\n/g, '<br>');
-  ST.scrollY = 0;
-  document.getElementById('tp-track').style.transform = 'translateY(0)';
+function measureFocusZone(){
+  const fz=document.getElementById('focus-zone');
+  const r=fz.getBoundingClientRect();
+  G.focusTop=r.top; G.focusH=r.height;
 }
 
-function togglePrompter() {
-  ST.prompterOn ? stopPrompter() : startPrompter();
+/* ── PROMPT LOOP ─────────────────────────── */
+function togPrompt(){ G.promptOn?stopPrompt():startPrompt(); }
+
+function startPrompt(){
+  G.promptOn=true;
+  const b=document.getElementById('btn-tp');
+  b.textContent='⏸ Pausar Leitura'; b.classList.add('live');
+  G.lastTS=null;
+  G.promptRAF=requestAnimationFrame(stepPrompt);
+  toast('Leitura iniciada ▶','c');
 }
 
-function startPrompter() {
-  ST.prompterOn = true;
-  document.getElementById('tp-overlay').style.display = 'block';
-  const btn = document.getElementById('btn-prompt-toggle');
-  btn.textContent = '⏸ Pausar Leitura';
-  btn.classList.add('running');
-  ST.lastTS = null;
-  ST.promptRAF = requestAnimationFrame(stepPrompter);
+function stopPrompt(){
+  G.promptOn=false;
+  if(G.promptRAF) cancelAnimationFrame(G.promptRAF);
+  const b=document.getElementById('btn-tp');
+  b.textContent='▶ Iniciar Leitura'; b.classList.remove('live');
+  clearWordHighlight();
 }
 
-function stopPrompter() {
-  ST.prompterOn = false;
-  if (ST.promptRAF) cancelAnimationFrame(ST.promptRAF);
-  const btn = document.getElementById('btn-prompt-toggle');
-  btn.textContent = '▶ Iniciar Leitura';
-  btn.classList.remove('running');
+function stepPrompt(ts){
+  if(!G.promptOn) return;
+  if(G.lastTS===null) G.lastTS=ts;
+
+  // High-precision delta via performance.now() passed by rAF
+  const delta=Math.min((ts-G.lastTS)*0.001, 0.1); // seconds, capped at 100ms
+  G.lastTS=ts;
+
+  // Advance target (exact physics velocity)
+  G.targetY += G.pxPerSec * delta;
+
+  // Frame-rate independent lerp — smooth deceleration
+  // α = 1 - base^(delta*60), so α≈0.18 at 60fps regardless of frame rate
+  const alpha = 1 - Math.pow(0.08, delta * 60);
+  G.scrollY += (G.targetY - G.scrollY) * alpha;
+
+  // GPU-only composite — no layout, no paint
+  document.getElementById('tp-track').style.transform =
+    `translateZ(0) translateY(${-G.scrollY}px)`;
+
+  // Word highlight
+  if(G.hmMode!=='off') updateWordHighlight();
+
+  // End?
+  const maxH=document.getElementById('tp-words').scrollHeight;
+  if(G.targetY>=maxH){ stopPrompt(); toast('Roteiro concluído ✓','g'); return; }
+
+  G.promptRAF=requestAnimationFrame(stepPrompt);
 }
 
-function stepPrompter(ts) {
-  if (!ST.prompterOn) return;
-  if (ST.lastTS === null) ST.lastTS = ts;
-  const delta = (ts - ST.lastTS) / 1000;
-  ST.lastTS = ts;
-  ST.scrollY += ST.speed * delta * 55;
-  document.getElementById('tp-track').style.transform = `translateY(-${ST.scrollY}px)`;
-  const maxH = document.getElementById('tp-text').scrollHeight;
-  if (ST.scrollY >= maxH) {
-    stopPrompter();
-    toast('Roteiro concluído! ✓', 'green');
-    return;
-  }
-  ST.promptRAF = requestAnimationFrame(stepPrompter);
-}
+/* ── WORD HIGHLIGHT ──────────────────────── */
+function updateWordHighlight(){
+  if(!G.words.length) return;
 
-// ══════════════════════════════════════════════
-// RECORDING ENGINE
-// ══════════════════════════════════════════════
-async function toggleRecord() {
-  if (!ST.stream) {
-    toast('Câmera não disponível', 'red'); return;
-  }
-  ST.isRecording ? stopRecording() : startRecording();
-}
+  // Find word whose top is closest to focus zone center
+  const focusMid = G.focusTop + G.focusH * 0.45; // slightly above center — natural read point
 
-function getMime() {
-  const candidates = [
-    'video/mp4;codecs=h264,aac',
-    'video/mp4',
-    'video/webm;codecs=vp9,opus',
-    'video/webm;codecs=vp8,opus',
-    'video/webm',
-  ];
-  return candidates.find(t => MediaRecorder.isTypeSupported(t)) || '';
-}
-
-function startRecording() {
-  ST.chunks = [];
-  ST.totalBytes = 0;
-  ST.markers = [];
-
-  const mime = getMime();
-  const opts = { videoBitsPerSecond: 6_000_000 };
-  if (mime) opts.mimeType = mime;
-
-  try {
-    ST.mediaRecorder = new MediaRecorder(ST.stream, opts);
-  } catch(e) {
-    ST.mediaRecorder = new MediaRecorder(ST.stream);
+  // Binary-search closest word to focusMid considering current scroll
+  let bestIdx=-1, bestDist=Infinity;
+  for(let i=0;i<G.wordTops.length;i++){
+    const screenY = G.wordTops[i] - G.scrollY;
+    const dist = Math.abs(screenY - focusMid);
+    if(dist<bestDist){ bestDist=dist; bestIdx=i; }
   }
 
-  ST.mediaRecorder.ondataavailable = e => {
-    if (e.data && e.data.size > 0) {
-      ST.chunks.push(e.data);
-      ST.totalBytes += e.data.size;
-    }
-  };
+  if(bestIdx===G.activeWordIdx) return; // no change
+  G.activeWordIdx=bestIdx;
 
-  ST.mediaRecorder.onstop = () => onRecordingStop();
-  ST.mediaRecorder.start(500); // collect every 500ms
+  if(G.hmMode==='word'){
+    G.words.forEach((w,i)=>w.classList.toggle('active', i===bestIdx));
+  } else if(G.hmMode==='line'){
+    // highlight all words on same approximate line
+    const lineY = G.wordTops[bestIdx];
+    const lineTol = G.fontVw/100*window.innerWidth * G.lineH * 0.6;
+    G.words.forEach((w,i)=>w.classList.toggle('active', Math.abs(G.wordTops[i]-lineY)<lineTol));
+  }
+}
 
-  ST.isRecording = true;
-  ST.recStart = Date.now();
+function clearWordHighlight(){ G.words.forEach(w=>w.classList.remove('active')); G.activeWordIdx=-1; }
 
-  const btn = document.getElementById('btn-rec');
-  btn.textContent = '⏹';
-  btn.classList.add('recording');
+/* ═══════════════════════════════════════════════════
+   RECORDING
+═══════════════════════════════════════════════════ */
+const MIMES=[
+  'video/mp4;codecs=h264,aac',
+  'video/mp4;codecs=avc1,mp4a.40.2',
+  'video/mp4',
+  'video/webm;codecs=vp9,opus',
+  'video/webm;codecs=vp8,opus',
+  'video/webm',
+];
+function bestMime(){ return MIMES.find(t=>{ try{return MediaRecorder.isTypeSupported(t)}catch(e){return false;} })||''; }
+
+function togRec(){ G.isRec?stopRec():startRec(); }
+
+function startRec(){
+  G.chunks=[]; G.totalBytes=0; G.markers=[];
+  const mime=bestMime();
+  const opts={videoBitsPerSecond:G.bitrate, audioBitsPerSecond:320_000};
+  if(mime) opts.mimeType=mime;
+  try{ G.mediaRec=new MediaRecorder(G.stream,opts); }
+  catch(e){ G.mediaRec=new MediaRecorder(G.stream); }
+  G.mediaRec.ondataavailable=e=>{ if(e.data?.size>0){G.chunks.push(e.data);G.totalBytes+=e.data.size;} };
+  G.mediaRec.onstop=onStop;
+  G.mediaRec.start(250);
+  G.isRec=true; G.recStart=performance.now();
+  document.getElementById('btn-rec').classList.add('live');
+  document.getElementById('btn-rec').textContent='⏹';
   document.getElementById('rec-badge').classList.add('show');
-
-  ST.timerID = setInterval(() => {
-    const e = Math.floor((Date.now() - ST.recStart) / 1000);
-    document.getElementById('rec-time-live').textContent =
-      `${String(Math.floor(e/60)).padStart(2,'0')}:${String(e%60).padStart(2,'0')}`;
-  }, 500);
-
-  // auto-start prompter
-  if (!ST.prompterOn) startPrompter();
-  toast('● Gravando…', 'orange');
+  G.timerID=setInterval(()=>{
+    const e=Math.floor((performance.now()-G.recStart)/1000);
+    document.getElementById('rec-clock').textContent=`${String(Math.floor(e/60)).padStart(2,'0')}:${String(e%60).padStart(2,'0')}`;
+  },250);
+  if(!G.promptOn) startPrompt();
+  toast('● Gravando em '+G.qualLabel,'o');
 }
 
-function stopRecording() {
-  if (ST.mediaRecorder && ST.mediaRecorder.state !== 'inactive') {
-    ST.mediaRecorder.stop();
-  }
-  ST.isRecording = false;
-  clearInterval(ST.timerID);
-
-  const btn = document.getElementById('btn-rec');
-  btn.textContent = '⏺';
-  btn.classList.remove('recording');
+function stopRec(){
+  if(G.mediaRec?.state!=='inactive') G.mediaRec.stop();
+  G.isRec=false; G.recDur=(performance.now()-G.recStart)/1000;
+  clearInterval(G.timerID);
+  document.getElementById('btn-rec').classList.remove('live');
+  document.getElementById('btn-rec').textContent='⏺';
   document.getElementById('rec-badge').classList.remove('show');
-
-  ST.recDuration = (Date.now() - ST.recStart) / 1000;
-  if (ST.prompterOn) stopPrompter();
-  toast('Finalizando gravação…', 'green');
+  if(G.promptOn) stopPrompt();
+  toast('Finalizando…','c');
 }
 
-function onRecordingStop() {
-  if (!ST.chunks.length) { toast('Nenhum dado gravado.', 'red'); return; }
-  const mime = ST.mediaRecorder.mimeType || 'video/webm';
-  const blob = new Blob(ST.chunks, { type: mime });
-  const url  = URL.createObjectURL(blob);
-
-  // Fill save screen info
-  document.getElementById('save-dur').textContent  = fmtTime(ST.recDuration);
-  document.getElementById('save-size').textContent = fmtBytes(blob.size);
-  document.getElementById('save-marks').textContent = ST.markers.length;
-
-  // Determine file extension
-  const ext = mime.includes('mp4') ? 'mp4' : 'webm';
-  const filename = `gravacao_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.${ext}`;
-
-  const link = document.getElementById('download-link');
-  link.href = url;
-  link.download = filename;
-
-  show('screen-save');
+function onStop(){
+  if(!G.chunks.length){toast('Sem dados gravados','r');return;}
+  const mime=G.mediaRec.mimeType||'video/webm';
+  const blob=new Blob(G.chunks,{type:mime});
+  const url=URL.createObjectURL(blob);
+  const ext=mime.includes('mp4')?'mp4':'webm';
+  const name=`prompter_${G.qualLabel}_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.${ext}`;
+  document.getElementById('dl-link').href=url;
+  document.getElementById('dl-link').download=name;
+  document.getElementById('sv-dur').textContent=fmtT(G.recDur);
+  document.getElementById('sv-size').textContent=fmtB(blob.size);
+  document.getElementById('sv-qual').textContent=G.qualLabel;
+  document.getElementById('sv-marks').textContent=G.markers.length;
+  document.getElementById('sv-fmt').textContent=ext.toUpperCase();
+  show('s-save');
 }
 
-// ══════════════════════════════════════════════
-// MARKERS
-// ══════════════════════════════════════════════
-function addMarker() {
-  if (!ST.isRecording) { toast('Grave primeiro para adicionar marcadores', 'orange'); return; }
-  const elapsed = (Date.now() - ST.recStart) / 1000;
-  ST.markers.push({ t: elapsed, label: 'M' + (ST.markers.length + 1) });
-  toast(`🚩 Marcador ${ST.markers.length} — ${fmtTime(elapsed)}`, 'orange');
+function addMarker(){
+  if(!G.isRec){toast('Grave primeiro','o');return;}
+  const t=(performance.now()-G.recStart)/1000;
+  G.markers.push(t);
+  toast(`🚩 Marcador ${G.markers.length} — ${fmtT(t)}`,'o');
 }
 
-// ══════════════════════════════════════════════
-// NEW RECORDING
-// ══════════════════════════════════════════════
-function newRecording() {
-  ST.chunks = [];
-  ST.totalBytes = 0;
-  ST.scrollY = 0;
-  ST.markers = [];
-  ST.recDuration = 0;
-  document.getElementById('tp-track').style.transform = 'translateY(0)';
-  document.getElementById('rec-time-live').textContent = '00:00';
-  show('screen-script');
+function resetAll(){
+  G.chunks=[];G.totalBytes=0;G.markers=[];G.recDur=0;
+  G.scrollY=0;G.targetY=0;G.activeWordIdx=-1;
+  document.getElementById('tp-track').style.transform='translateZ(0) translateY(0)';
+  document.getElementById('rec-clock').textContent='00:00';
+  show('s-setup');
 }
 
-// ══════════════════════════════════════════════
-// UTILS
-// ══════════════════════════════════════════════
-function fmtTime(s) {
-  const m = Math.floor(s / 60);
-  return `${m}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
-}
-function fmtBytes(b) {
-  if (b < 1048576) return (b / 1024).toFixed(0) + ' KB';
-  return (b / 1048576).toFixed(1) + ' MB';
-}
-
-// ══════════════════════════════════════════════
-// KEYBOARD (desktop/bluetooth clicker)
-// ══════════════════════════════════════════════
-document.addEventListener('keydown', e => {
-  if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
-  if (e.code === 'Space') { e.preventDefault(); togglePrompter(); }
-  if (e.key === 'r' || e.key === 'R') toggleRecord();
-  if (e.key === 'm' || e.key === 'M') addMarker();
-  if (e.key === 'ArrowUp')   { const el = document.getElementById('r-speed'); el.value = Math.min(5, parseFloat(el.value) + 0.2); setSpeed(el.value); }
-  if (e.key === 'ArrowDown') { const el = document.getElementById('r-speed'); el.value = Math.max(0.3, parseFloat(el.value) - 0.2); setSpeed(el.value); }
-  if (e.key === 'Escape') stopPrompter();
+/* ═══════════════════════════════════════════════════
+   KEYBOARD / BLUETOOTH CLICKER
+═══════════════════════════════════════════════════ */
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='TEXTAREA'||e.target.tagName==='INPUT')return;
+  if(e.code==='Space'){e.preventDefault();togPrompt();}
+  if(e.key==='r'||e.key==='R') togRec();
+  if(e.key==='m'||e.key==='M') addMarker();
+  if(e.key==='Escape') stopPrompt();
+  if(e.key==='ArrowUp'){
+    G.wpm=Math.min(260,G.wpm+5); onWpm(G.wpm);
+    toast('WPM: '+G.wpm,'c');
+  }
+  if(e.key==='ArrowDown'){
+    G.wpm=Math.max(60,G.wpm-5); onWpm(G.wpm);
+    toast('WPM: '+G.wpm,'c');
+  }
 });
 
-// ══════════════════════════════════════════════
-// SWIPE UP — speed up (gesture)
-// ══════════════════════════════════════════════
-let touchY0 = null;
-document.getElementById('screen-studio').addEventListener('touchstart', e => { touchY0 = e.touches[0].clientY; }, { passive: true });
-document.getElementById('screen-studio').addEventListener('touchend', e => {
-  if (touchY0 === null) return;
-  const dy = touchY0 - e.changedTouches[0].clientY;
-  if (Math.abs(dy) > 50) {
-    const el = document.getElementById('r-speed');
-    el.value = Math.max(0.3, Math.min(5, parseFloat(el.value) + (dy > 0 ? 0.2 : -0.2)));
-    setSpeed(el.value);
-    toast('Velocidade: ' + ST.speed.toFixed(1) + '×');
-  }
-  touchY0 = null;
-}, { passive: true });
+/* Swipe vertical = WPM ±10 */
+let _sy=null;
+document.getElementById('s-studio').addEventListener('touchstart',e=>{_sy=e.touches[0].clientY;},{passive:true});
+document.getElementById('s-studio').addEventListener('touchend',e=>{
+  if(_sy===null)return;
+  const dy=_sy-e.changedTouches[0].clientY;
+  if(Math.abs(dy)>48){G.wpm=Math.min(260,Math.max(60,G.wpm+(dy>0?10:-10)));onWpm(G.wpm);toast('WPM: '+G.wpm,'c');}
+  _sy=null;
+},{passive:true});
 
-// ══════════════════════════════════════════════
-// INIT — request camera permission upfront
-// ══════════════════════════════════════════════
-window.addEventListener('load', async () => {
-  // Pre-request permission so enumerate works
-  try {
-    const s = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-    s.getTracks().forEach(t => t.stop()); // just get permission
+/* Resize → recalc */
+window.addEventListener('resize',()=>{ calcPxPerSec(); measureFocusZone(); scheduleWordLayout(); });
+
+/* ═══════════════════════════════════════════════════
+   UTILS
+═══════════════════════════════════════════════════ */
+function fmtT(s){const m=Math.floor(s/60);return `${m}:${String(Math.floor(s%60)).padStart(2,'0')}`;}
+function fmtB(b){if(b<1048576)return (b/1024).toFixed(0)+' KB';return (b/1048576).toFixed(1)+' MB';}
+
+/* ═══════════════════════════════════════════════════
+   BOOT
+═══════════════════════════════════════════════════ */
+window.addEventListener('load',async()=>{
+  updateEstimate(); calcPxPerSec();
+  document.getElementById('script-input').addEventListener('input',()=>{ updateEstimate(); calcPxPerSec(); });
+  try{
+    const s=await navigator.mediaDevices.getUserMedia({video:true,audio:true});
+    s.getTracks().forEach(t=>t.stop());
     await populateCams();
-  } catch(e) {
-    // will try again on goToStudio
-  }
+  }catch(e){ await populateCams(); }
 });
 </script>
 </body>
